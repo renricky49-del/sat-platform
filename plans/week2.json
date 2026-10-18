@@ -1,0 +1,22 @@
+{
+  "week": 2,
+  "label": "第2周",
+  "start": "2026-10-19",
+  "end": "2026-10-25",
+  "seed": 20261019,
+  "days": [
+    {"id": "w2d1", "dates": ["2026-10-19"], "label": "周一",
+     "reading": [{"type": "chart", "n": 8}, {"type": "transition", "n": 5}, {"type": "wic", "n": 8}],
+     "math": [{"type": "psda", "n": 10}, {"type": "geo", "n": 10}]},
+    {"id": "w2d2", "dates": ["2026-10-20"], "label": "周二",
+     "reading": [{"type": "detail", "n": 8}, {"type": "synthesis", "n": 5}, {"type": "wic", "n": 8}],
+     "math": [{"type": "alg", "n": 10}, {"type": "adv", "n": 10}]},
+    {"id": "w2d3", "dates": ["2026-10-21"], "label": "周三",
+     "reading": [{"type": "detail", "n": 8}, {"type": "transition", "n": 5}, {"type": "wic", "n": 8}],
+     "math": [{"type": "psda", "n": 10}, {"type": "geo", "n": 10}]},
+    {"id": "w2d6", "dates": ["2026-10-24"], "label": "周六",
+     "reading": [{"type": "chart", "n": 8}, {"type": "synthesis", "n": 5}, {"type": "wic", "n": 8}],
+     "math": [{"type": "alg", "n": 10}, {"type": "adv", "n": 10}]}
+  ],
+  "extra": {"chart": 20, "transition": 20, "detail": 20, "synthesis": 20, "wic": 20, "psda": 20, "geo": 20, "alg": 20, "adv": 20}
+}
