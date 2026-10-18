@@ -50,7 +50,8 @@ function showLogin(msg) {
     try {
       const st = await Store.login($('#lgEmail').value.trim(), $('#lgPass').value);
       if (st === 'norole') return showNoRole();
-      startApp();
+      // 刚登录时立刻读数据有时还没带上登录凭证，刷新一次最稳
+      location.reload();
     } catch (err) {
       showLogin(/invalid/i.test(err.message || '') ? '邮箱或密码不对，再试一次。' : '登录失败：' + (err.message || err));
     }

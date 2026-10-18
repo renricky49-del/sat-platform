@@ -17,6 +17,7 @@ async function loadQuestions() {
     const w = await SB.from('weeks').select('week,data').order('week');
     if (w.error) throw w.error;
     WEEKS = w.data.map((r) => ({ ...r.data, questions: {} }));
+    if (!WEEKS.length) throw new Error('题库是空的（可能是登录还没生效），请刷新页面');
     for (let from = 0; ; from += 1000) {
       const { data, error } = await SB.from('questions').select('id,data').range(from, from + 999);
       if (error) throw error;
