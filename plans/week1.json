@@ -1,0 +1,16 @@
+{
+  "week": 1,
+  "label": "第1周",
+  "start": "2026-10-12",
+  "end": "2026-10-18",
+  "seed": 20261017,
+  "days": [
+    {"id": "w1d6", "dates": ["2026-10-17"], "label": "周六",
+     "reading": [{"type": "chart", "n": 10}, {"type": "detail", "n": 5}, {"type": "wic", "n": 8}],
+     "math": [{"type": "psda", "n": 10}, {"type": "geo", "n": 10}]},
+    {"id": "w1d7", "dates": ["2026-10-18"], "label": "周日",
+     "reading": [{"type": "detail", "n": 10}, {"type": "chart", "n": 5}, {"type": "wic", "n": 8}],
+     "math": [{"type": "alg", "n": 10}, {"type": "adv", "n": 10}]}
+  ],
+  "extra": {"chart": 20, "detail": 20, "wic": 20, "psda": 20, "geo": 20, "alg": 20, "adv": 20}
+}

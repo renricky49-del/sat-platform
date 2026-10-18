@@ -1,0 +1,8 @@
+# 题目内容只放在 Supabase（需登录才能读），不进公开仓库
+app/data/
+cache/
+.env
+assets_src/
+__pycache__/
+.DS_Store
+docs/data/

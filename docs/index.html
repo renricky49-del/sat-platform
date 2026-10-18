@@ -1,0 +1,2764 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>喵喵SAT通关</title>
+<meta name="description" content="SAT 每日关卡练习：Bluebook 风格答题、错题本、金币与像素猫">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Jersey+10&family=ZCOOL+KuaiLe&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* 版式：像素游戏外壳（粗描边 + 硬投影卡片）包住一张 Bluebook 白纸答题区 */
+:root {
+  --bg: #dcefe8;
+  --bg-dot: #cbe5db;
+  --card: #fffdf6;
+  --card-2: #f6efe0;
+  --ink: #3b2a20;
+  --ink-2: #6b5646;
+  --muted: #8a7867;
+  --line: #3b2a20;
+  --teal: #1d9a8d;
+  --teal-2: #157166;
+  --teal-soft: #d3eee8;
+  --gold: #f2b134;
+  --gold-2: #b47809;
+  --gold-soft: #fcefc9;
+  --pink: #f2809f;
+  --pink-soft: #fde2e9;
+  --sky: #4d9fe0;
+  --good: #2c9a50;
+  --good-soft: #daf2e1;
+  --bad: #d4463a;
+  --bad-soft: #fadfdb;
+  --chip: #efe5d1;
+  --shadow: rgba(59, 42, 32, .18);
+  /* 答题纸：两种主题都保持白底，官方图表才能看清 */
+  --paper: #ffffff;
+  --paper-ink: #1e1e1e;
+  --paper-line: #cfcfcf;
+  --paper-soft: #f2f2f2;
+  --bb-blue: #324dc7;
+  --bb-blue-2: #263c9e;
+  --f-ui: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-px: "Jersey 10", "Noto Sans SC", ui-monospace, monospace;
+  --f-fun: "ZCOOL KuaiLe", "Noto Sans SC", "PingFang SC", sans-serif;
+  --f-q: "Noto Serif", Georgia, "Times New Roman", serif;
+  --f-bb: "Noto Sans", "Helvetica Neue", Arial, "Noto Sans SC", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1b2030; --bg-dot: #222a3d; --card: #272f46; --card-2: #2f3853; --ink: #f3e9d8; --ink-2: #d2c4b2; --muted: #a59a8d; --line: #0b0e17;
+    --teal: #33b8a9; --teal-2: #24897e; --teal-soft: #1d3d42; --gold: #f4bd4c; --gold-2: #d99a1f; --gold-soft: #463a1c; --pink: #f597b0; --pink-soft: #4a2934;
+    --sky: #6db3ea; --good: #4bbf70; --good-soft: #1d3c2a; --bad: #ee6a5e; --bad-soft: #4a2420; --chip: #333c58; --shadow: rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1b2030; --bg-dot: #222a3d; --card: #272f46; --card-2: #2f3853; --ink: #f3e9d8; --ink-2: #d2c4b2; --muted: #a59a8d; --line: #0b0e17;
+  --teal: #33b8a9; --teal-2: #24897e; --teal-soft: #1d3d42; --gold: #f4bd4c; --gold-2: #d99a1f; --gold-soft: #463a1c; --pink: #f597b0; --pink-soft: #4a2934;
+  --sky: #6db3ea; --good: #4bbf70; --good-soft: #1d3c2a; --bad: #ee6a5e; --bad-soft: #4a2420; --chip: #333c58; --shadow: rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--bg-dot) 1.5px, transparent 1.6px);
+  background-size: 18px 18px;
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: 15px;
+  line-height: 1.55;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: 24px; font-weight: 900; }
+h2 { font-size: 18px; font-weight: 800; }
+h3 { font-size: 16px; font-weight: 700; }
+.muted { color: var(--muted); }
+.lnk { background: none; border: 0; padding: 0; color: var(--teal-2); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.lnk.danger { color: var(--bad); }
+.coin-txt { color: var(--gold-2); }
+
+/* ---------- 外壳 ---------- */
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--card); border-bottom: 3px solid var(--line); }
+.topbar-in { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 14px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+.brand { display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; font-family: var(--f-fun); font-size: 20px; white-space: nowrap; }
+.brand img { height: 34px; image-rendering: auto; }
+.tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.tab { background: none; border: 2px solid transparent; border-radius: 8px; padding: 6px 12px; font-weight: 700; color: var(--ink-2); white-space: nowrap; }
+.tab:hover { background: var(--chip); }
+.tab.on { background: var(--teal-soft); border-color: var(--line); color: var(--ink); }
+.top-right { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 3px solid var(--line); border-radius: 999px; padding: 2px 10px 2px 6px; font-family: var(--f-px); font-weight: 400; font-size: 21px; line-height: 1.1; background: var(--gold-soft); box-shadow: 0 3px 0 var(--line); }
+.lv-pill { background: var(--pink-soft); padding-left: 10px; }
+.coin { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--gold); box-shadow: inset 0 0 0 2px var(--gold-2), inset 3px 3px 0 2px #ffe08a; vertical-align: -3px; flex: none; }
+.coin.sm { width: 13px; height: 13px; box-shadow: inset 0 0 0 2px var(--gold-2); vertical-align: -1px; }
+.page { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding-block: 22px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 20px; }
+.foot { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; align-items: center; padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; color: var(--muted); }
+.foot-links { display: flex; gap: 14px; }
+.save-state.err { color: var(--bad); font-weight: 700; }
+
+.card { background: var(--card); border: 3px solid var(--line); border-radius: 12px; box-shadow: 0 5px 0 var(--line); padding: 20px; min-width: 0; }
+.sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.notice { background: var(--gold-soft); border: 2px dashed var(--gold-2); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.empty { color: var(--muted); padding: 10px 0; list-style: none; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 3px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-weight: 800; padding: 8px 16px; box-shadow: 0 4px 0 var(--line); transition: transform .06s, box-shadow .06s; text-decoration: none; }
+.btn:hover:not(:disabled) { filter: brightness(1.04); }
+.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--line); }
+.btn.primary { background: var(--teal); color: #fff; }
+.btn.ghost { background: var(--card-2); }
+.btn.big { font-size: 19px; padding: 13px 26px; border-radius: 14px; }
+.btn.small { font-size: 13px; padding: 4px 12px; border-width: 2px; box-shadow: 0 3px 0 var(--line); border-radius: 9px; }
+.btn:disabled { opacity: .45; }
+.cta-arrow { font-size: 14px; }
+.chip { border: 2px solid var(--line); background: var(--card); border-radius: 999px; padding: 3px 12px; font-weight: 700; font-size: 13px; }
+.chip.on { background: var(--ink); color: var(--card); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { display: inline-block; font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 6px; border: 2px solid var(--line); white-space: nowrap; }
+.badge.rw { background: var(--pink-soft); }
+.badge.math { background: var(--teal-soft); }
+.ok-tag, .bad-tag { font-size: 12px; font-weight: 800; padding: 1px 8px; border-radius: 6px; background: var(--good-soft); color: var(--good); }
+.bad-tag { background: var(--bad-soft); color: var(--bad); }
+.kicker { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: var(--teal-2); }
+
+.pxbar { height: 20px; border: 3px solid var(--line); border-radius: 6px; background: var(--chip); overflow: hidden; }
+.pxbar i { display: block; height: 100%; background: repeating-linear-gradient(90deg, var(--teal) 0 10px, var(--teal-2) 10px 12px); border-right: 3px solid var(--line); min-width: 4px; }
+.pxbar.thin { height: 12px; border-width: 2px; }
+.pxbar.thin i { background: var(--gold); border-right-width: 2px; }
+
+/* ---------- 首页 ---------- */
+.hero { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; }
+.quest { display: flex; flex-direction: column; gap: 16px; background: var(--card); position: relative; overflow: hidden; }
+.quest.cleared { background: linear-gradient(var(--good-soft), var(--card) 60%); }
+.quest-head { display: flex; justify-content: space-between; gap: 16px; }
+.quest h1 { font-family: var(--f-fun); font-weight: 400; font-size: 34px; letter-spacing: .02em; }
+.quest-date { flex: none; text-align: center; border: 3px solid var(--line); border-radius: 10px; overflow: hidden; width: 74px; box-shadow: 0 3px 0 var(--line); }
+.quest-date span { display: block; background: var(--bad); color: #fff; font-size: 12px; font-weight: 800; padding: 2px 0; }
+.quest-date b { display: block; font-size: 20px; padding: 4px 0; font-family: var(--f-fun); font-weight: 400; }
+.stage-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.stage-chip { display: flex; align-items: center; gap: 8px; border: 2px solid var(--line); border-radius: 10px; padding: 5px 10px 5px 6px; background: var(--card-2); font-size: 14px; }
+.stage-chip.done { background: var(--good-soft); }
+.stage-chip.done .sc-n::before { content: "✓ "; color: var(--good); font-weight: 900; }
+.stage-chip.now { background: var(--gold-soft); box-shadow: 0 0 0 3px var(--gold); }
+.sc-sec { font-size: 11px; font-weight: 900; padding: 1px 6px; border-radius: 5px; color: #fff; background: var(--pink); }
+.sc-sec.math { background: var(--teal); }
+.sc-sec.rv { background: var(--gold-2); }
+.sc-name { font-weight: 700; }
+.sc-n { font-family: var(--f-px); font-size: 18px; line-height: 1; color: var(--ink-2); }
+.quest-cta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: auto; }
+.countdown { display: flex; flex-direction: column; gap: 10px; background: var(--gold-soft); }
+.cd-label { font-weight: 700; color: var(--ink-2); }
+.cd-num { display: flex; align-items: baseline; gap: 6px; }
+.cd-num .big { font-family: var(--f-px); font-weight: 400; font-size: 104px; line-height: .9; color: var(--ink); text-shadow: 3px 3px 0 var(--gold); }
+.cd-num .unit { font-family: var(--f-fun); font-size: 24px; }
+.cd-foot { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); }
+.cd-week { font-size: 13px; color: var(--muted); }
+
+.weekmap { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; position: relative; }
+.weekmap::before { content: ""; position: absolute; left: 7%; right: 7%; top: 21px; border-top: 4px dotted var(--muted); z-index: 0; }
+.wm-node { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.wm-dot { width: 44px; height: 44px; border-radius: 12px; border: 3px solid var(--line); display: grid; place-items: center; font-family: var(--f-px); font-size: 24px; background: var(--card-2); box-shadow: 0 3px 0 var(--line); }
+.wm-node.clear .wm-dot { background: var(--gold); color: var(--ink); font-size: 24px; }
+.wm-node.today .wm-dot { background: var(--teal); color: #fff; animation: bob 1.4s ease-in-out infinite; }
+.wm-node.miss .wm-dot { background: var(--bad-soft); color: var(--bad); }
+.wm-node.future .wm-dot, .wm-node.rest .wm-dot { opacity: .65; }
+.wm-day { font-weight: 800; font-size: 13px; margin-top: 4px; }
+.wm-date { font-size: 12px; color: var(--muted); }
+.wm-tag { font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 5px; background: var(--chip); }
+.wm-coin { font-family: var(--f-px); font-size: 17px; display: flex; align-items: center; gap: 3px; color: var(--gold-2); }
+@keyframes bob { 50% { transform: translateY(-4px); } }
+
+.makeup .mk-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mk-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px; border: 2px dashed var(--line); border-radius: 10px; flex-wrap: wrap; }
+
+/* ---------- 小窝 ---------- */
+.room { position: relative; width: 100%; aspect-ratio: 1032 / 576; border: 3px solid var(--line); border-radius: 10px; overflow: hidden; background: #f3dfa6; }
+.room-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.deco { position: absolute; height: auto; image-rendering: auto; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, .12)); }
+.room-pet { position: absolute; left: 50%; bottom: 3.5%; height: 42%; transform: translateX(-50%); }
+.room-pet.on-bed { bottom: 6.5%; }
+.room-card .room { max-width: 860px; margin: 0 auto; }
+.unlock-line { max-width: 860px; margin-inline: auto; display: flex; flex-direction: column; gap: 6px; margin-top: 12px; font-size: 14px; }
+.unlock-line .pxbar { max-width: 360px; }
+
+/* ---------- 像素萌宠 ---------- */
+.pet { position: relative; height: var(--ph); width: calc(var(--ph) * var(--pr)); cursor: pointer; user-select: none; -webkit-user-select: none; }
+.pet.fluid { height: 100%; width: auto; aspect-ratio: var(--pr); }
+.pet-inner { position: absolute; inset: 0; transform-origin: 50% 100%; }
+.pose { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.pose.blink, .pose.cheer { opacity: 0; }
+.wear { position: absolute; height: auto; pointer-events: none; }
+.pet-shadow { position: absolute; left: 18%; right: 18%; bottom: -3%; height: 7%; border-radius: 50%; background: var(--shadow); z-index: -1; }
+.pet.idle .pet-inner { animation: breathe 2.6s ease-in-out infinite; }
+.pet.idle .pose.blink { animation: blink 5s steps(1) infinite; }
+.pet.hop .pet-inner { animation: hop .8s cubic-bezier(.3, .7, .4, 1); }
+.pet.hop .pose.blink { opacity: 1; }
+.pet.party .pet-inner { animation: party 1.25s ease-in-out infinite; }
+.pet.party .pose.base { opacity: 0; }
+.pet.party .pose.cheer { opacity: 1; }
+@keyframes breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.012, .975); } }
+@keyframes blink { 0%, 91% { opacity: 0; } 92%, 95% { opacity: 1; } 96%, 100% { opacity: 0; } }
+@keyframes hop { 0% { transform: scale(1.06, .9); } 30% { transform: translateY(-26%) scale(.96, 1.06); } 58% { transform: translateY(0) scale(1.08, .9); } 78% { transform: translateY(-5%) scale(1, 1.02); } 100% { transform: none; } }
+@keyframes party { 0% { transform: scale(1.06, .92); } 25% { transform: translateY(-18%) rotate(-5deg); } 50% { transform: translateY(0) scale(1.06, .92); } 75% { transform: translateY(-18%) rotate(5deg); } 100% { transform: scale(1.06, .92); } }
+.spark { display: none; position: absolute; width: 10px; height: 10px; background: var(--gold); box-shadow: 0 0 0 2px var(--line); transform: rotate(45deg); opacity: 0; animation: spark 1.25s ease-out infinite; }
+.spark.s1 { left: 0; top: 20%; } .spark.s2 { right: 0; top: 10%; animation-delay: .25s; background: var(--pink); }
+.spark.s3 { left: 15%; top: -6%; animation-delay: .5s; background: var(--sky); } .spark.s4 { right: 12%; top: 40%; animation-delay: .7s; }
+.spark.s5 { left: 48%; top: -14%; animation-delay: .95s; background: var(--teal); }
+.pet.party .spark { display: block; }
+@keyframes spark { 0% { opacity: 0; transform: translateY(10px) rotate(45deg) scale(.4); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px) rotate(45deg) scale(1.1); } }
+
+/* ---------- 关卡开始 / 结果 ---------- */
+.intro { display: flex; gap: 36px; align-items: center; padding: 34px; }
+.intro-pet { flex: none; display: grid; place-items: center; width: 220px; height: 200px; background: var(--teal-soft); border: 3px solid var(--line); border-radius: 50% 50% 14px 14px; padding-top: 26px; }
+.intro-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.intro-title { font-family: var(--f-fun); font-weight: 400; font-size: 40px; }
+.intro-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+.intro-stats div { border: 3px solid var(--line); border-radius: 10px; padding: 6px 14px; background: var(--card-2); display: flex; flex-direction: column; min-width: 92px; }
+.intro-stats b { font-family: var(--f-px); font-size: 32px; font-weight: 400; line-height: 1.1; }
+.intro-stats span { font-size: 12px; color: var(--muted); }
+.intro-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+.result-top { display: flex; gap: 28px; align-items: center; margin-bottom: 22px; }
+.result-pet { flex: none; width: 200px; height: 190px; display: grid; place-items: end center; background: radial-gradient(circle at 50% 70%, var(--gold-soft) 0 60%, transparent 61%); padding-bottom: 12px; }
+.result-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1; }
+.result-title { font-family: var(--f-fun); font-weight: 400; font-size: 38px; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.result-title span { font-family: var(--f-ui); font-size: 18px; font-weight: 800; color: var(--ink-2); }
+.result-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.rs { border: 3px solid var(--line); border-radius: 12px; padding: 10px 14px; background: var(--card-2); display: flex; flex-direction: column; }
+.rs span { font-size: 13px; color: var(--ink-2); font-weight: 700; }
+.rs b { font-family: var(--f-px); font-size: 42px; font-weight: 400; line-height: 1.05; }
+.rs small { color: var(--muted); font-size: 12px; }
+.sec-done { background: var(--good-soft); border-radius: 8px; padding: 6px 12px; margin: 0; font-weight: 600; }
+.qgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 10px; }
+.qg { position: relative; height: 56px; border: 3px solid var(--line); border-radius: 10px; font-family: var(--f-px); font-size: 26px; font-weight: 400; box-shadow: 0 3px 0 var(--line); display: flex; align-items: center; justify-content: center; gap: 4px; }
+.qg.ok { background: var(--good-soft); }
+.qg.bad { background: var(--bad-soft); }
+.qg i { font-style: normal; font-size: 14px; }
+.qg.ok i { color: var(--good); } .qg.bad i { color: var(--bad); }
+.qg:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+.result-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+
+/* ---------- 弹窗 ---------- */
+.modal-back { position: fixed; inset: 0; z-index: 100; background: rgba(28, 20, 12, .5); display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal { position: relative; width: 100%; max-width: 520px; max-height: 90vh; overflow: auto; background: var(--card); border: 3px solid var(--line); border-radius: 16px; box-shadow: 0 6px 0 var(--line); padding: 26px; }
+.modal.small { max-width: 420px; }
+.modal.wide { max-width: 820px; }
+.modal-x { position: absolute; right: 10px; top: 8px; border: 0; background: none; font-size: 26px; line-height: 1; color: var(--muted); }
+.m-title { margin-bottom: 8px; }
+.m-text { color: var(--ink-2); }
+.m-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.settle { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.settle-pet { padding-top: 24px; }
+.settle-title { font-family: var(--f-fun); font-weight: 400; font-size: 34px; }
+.settle-rows { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.settle-rows li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; border: 2px solid var(--line); border-radius: 10px; padding: 6px 12px; background: var(--card-2); }
+.settle-rows li.got { background: var(--gold-soft); }
+.sr-k { font-weight: 800; }
+.sr-note { font-size: 12px; color: var(--muted); }
+.settle-rows b { font-family: var(--f-px); font-size: 26px; font-weight: 400; }
+.settle-rows li.got b { color: var(--gold-2); }
+.settle-total { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 18px; margin-top: 4px; }
+.settle-total b { font-family: var(--f-px); font-size: 46px; font-weight: 400; display: flex; align-items: center; gap: 8px; color: var(--gold-2); }
+.settle-total .coin { width: 28px; height: 28px; }
+.settle-sub { color: var(--ink-2); font-size: 14px; }
+.settle-new { background: var(--pink-soft); border: 2px dashed var(--line); border-radius: 10px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.unl { background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 0 8px; font-weight: 700; font-size: 13px; }
+.weekly-modal { display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; }
+.weekly-modal .week-card { text-align: left; width: 100%; }
+
+.week-card { border: 3px solid var(--line); border-radius: 12px; padding: 16px; background: var(--card-2); display: flex; flex-direction: column; gap: 12px; }
+.week-card + .week-card { margin-top: 14px; }
+.wk-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.live { font-size: 12px; background: var(--teal); color: #fff; border-radius: 6px; padding: 1px 8px; margin-left: 8px; vertical-align: 2px; }
+.wk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wk-grid div { background: var(--card); border: 2px solid var(--line); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; }
+.wk-grid span { font-size: 12px; color: var(--ink-2); font-weight: 700; }
+.wk-grid b { font-family: var(--f-px); font-size: 34px; font-weight: 400; line-height: 1.1; }
+.wk-grid small { font-size: 12px; color: var(--muted); }
+.wk-pet { display: flex; gap: 14px; align-items: center; padding-top: 8px; }
+
+/* ---------- 引导 ---------- */
+.guide { position: absolute; left: 0; top: 0; width: 100%; z-index: 90; }
+.guide-hole { position: absolute; border-radius: 18px; box-shadow: 0 0 0 9999px rgba(24, 16, 8, .58); border: 3px dashed #fff; cursor: pointer; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.03); } }
+.guide-bubble { position: absolute; width: 320px; max-width: calc(100vw - 32px); background: var(--card); border: 3px solid var(--line); border-radius: 14px; box-shadow: 0 5px 0 var(--line); padding: 14px; display: flex; gap: 12px; align-items: flex-start; }
+.guide-bubble::before { content: ""; position: absolute; top: -14px; left: 40px; border: 12px solid transparent; border-bottom-color: var(--line); border-top: 0; }
+.guide-bubble p { margin: 4px 0 10px; font-size: 14px; color: var(--ink-2); }
+.gb-cat { flex: none; padding-top: 14px; }
+
+/* ---------- 错题本 / 列表 ---------- */
+.mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.mini-stats div { border: 2px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--card-2); display: flex; flex-direction: column; }
+.mini-stats b { font-family: var(--f-px); font-size: 30px; font-weight: 400; line-height: 1.1; }
+.mini-stats span { font-size: 12px; color: var(--muted); }
+.filters { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 14px; }
+.filters select, .set-form input, .rd-form input, .wb-note textarea, .note-box textarea { font: inherit; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 8px; padding: 5px 10px; }
+.wb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.wb-item { border: 2px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--card); }
+.wb-item.mastered { background: var(--good-soft); }
+.wb-top { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.wb-meta { font-size: 13px; color: var(--muted); }
+.wb-due { margin-left: auto; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.wb-due.hot { color: var(--bad); }
+.dots { display: inline-flex; gap: 3px; }
+.dots i { width: 9px; height: 9px; border: 2px solid var(--line); background: var(--card); }
+.dots i.on { background: var(--good); }
+.dots i.cur { background: var(--gold); }
+.wb-snip { margin: 8px 0; color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.wb-actions { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+.wb-note { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.wb-note textarea { width: 100%; }
+.wb-note p { margin: 0; white-space: pre-wrap; }
+
+.rec { border: 2px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--card-2); }
+.rec + .rec { margin-top: 12px; }
+.rec-head { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.rec-coin { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-px); font-size: 19px; color: var(--gold-2); }
+.rec-foot { font-size: 13px; margin-top: 6px; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { text-align: left; padding: 7px 10px; border-bottom: 2px dashed var(--chip); white-space: nowrap; }
+.tbl th { font-size: 12px; color: var(--muted); font-weight: 800; }
+.tbl tr.clickable { cursor: pointer; }
+.tbl tr.clickable:hover td { background: var(--gold-soft); }
+.tbl tr.today td { background: var(--teal-soft); }
+.spark-v { display: inline-block; margin-right: 4px; font-family: var(--f-px); font-size: 16px; border: 2px solid var(--line); border-radius: 5px; padding: 0 5px; background: var(--card); }
+.simple-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.simple-list li { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding-bottom: 8px; border-bottom: 2px dashed var(--chip); }
+
+.ex-count { display: flex; gap: 6px; align-items: center; margin: 4px 0 16px; flex-wrap: wrap; }
+.ex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.ex-card { border: 3px solid var(--line); border-radius: 12px; padding: 14px; background: var(--card-2); display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.ex-card.off { opacity: .55; }
+.ex-card p { margin: 0 0 6px; font-size: 13px; }
+
+.pet-hero .room { max-width: 900px; margin: 0 auto; }
+.pet-bar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 14px; }
+.pet-bar .pxbar { width: 240px; margin: 4px 0; }
+.anim-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.pk-card { border: 3px solid var(--line); border-radius: 12px; padding: 12px; background: var(--card-2); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.pk-card.using { background: var(--teal-soft); }
+.pk-card.locked .pk-img img { filter: grayscale(1) brightness(.35); opacity: .55; }
+.pk-img { height: 92px; display: grid; place-items: center; }
+.pk-img img { max-height: 92px; max-width: 120px; }
+.lock { font-size: 12px; font-weight: 800; color: var(--muted); }
+.using { font-size: 12px; font-weight: 800; color: var(--teal-2); }
+.ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ladder li { display: grid; grid-template-columns: 76px 1fr auto; gap: 10px; align-items: center; font-size: 14px; padding: 4px 0; border-bottom: 2px dashed var(--chip); }
+.ladder li.got { color: var(--ink); }
+.ladder li:not(.got) { color: var(--muted); }
+.ladder em { font-style: normal; font-size: 12px; font-weight: 800; }
+.ld-at { font-family: var(--f-px); font-size: 18px; display: flex; align-items: center; gap: 4px; }
+.rd-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.rd-form input { width: 110px; }
+.rd-list li b { font-family: var(--f-px); font-size: 19px; font-weight: 400; }
+.set-form { display: flex; flex-direction: column; gap: 14px; max-width: 640px; }
+.set-form label { display: flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: 14px; }
+.set-unlocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.set-unlocks label { flex-direction: row; justify-content: space-between; align-items: center; font-weight: 500; }
+.set-unlocks input { width: 80px; }
+.settings .notice { margin-top: 18px; }
+
+/* ---------- 提示 ---------- */
+#toasts { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { background: var(--ink); color: var(--card); border-radius: 10px; padding: 8px 16px; font-weight: 700; box-shadow: 0 4px 0 var(--line); transition: opacity .4s, transform .4s; }
+.toast.warn { background: var(--bad); color: #fff; }
+.toast.out { opacity: 0; transform: translateY(8px); }
+.boot { min-height: 70vh; display: grid; place-items: center; text-align: center; color: var(--ink-2); padding: 24px; }
+.boot-cat { width: 90px; height: 98px; margin: 0 auto 10px; background: url(img/cat_orange.png) center / contain no-repeat; animation: breathe 1.6s ease-in-out infinite; }
+
+/* =================== Bluebook 答题区 =================== */
+.bb { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: var(--paper); color: var(--paper-ink); font-family: var(--f-bb); color-scheme: light; }
+.bb-top { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; padding: calc(8px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) 8px max(20px, env(safe-area-inset-left, 0px)); background: #e6edf8; }
+.bb-sec { font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bb-sub { margin-top: 2px; }
+.bb-chip { font-size: 12.5px; color: #333; background: #fff; border: 1px solid #b9c3d8; border-radius: 4px; padding: 1px 8px; }
+.bb-timer { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.bb-clock { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.bb-timer.low .bb-clock { color: #c22d2d; }
+.bb-timer.hidden .bb-clock { visibility: hidden; }
+.bb-hide { border: 1.5px solid #6b6b6b; background: #fff; color: #1e1e1e; border-radius: 16px; padding: 0 14px; font-size: 12px; font-weight: 600; line-height: 22px; }
+.bb-tools { justify-self: end; display: flex; gap: 4px; }
+.bb-tool { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; color: #1e1e1e; padding: 2px 8px; font-size: 11.5px; font-weight: 600; text-decoration: none; border-radius: 6px; }
+.bb-tool:hover { background: rgba(50, 77, 199, .08); }
+.bb-rule { height: 3px; flex: none; background-image: repeating-linear-gradient(90deg, #1e1e1e 0 12px, transparent 12px 17px, #8d8d8d 17px 23px, transparent 23px 28px); }
+.bb-main { flex: 1; min-height: 0; display: flex; }
+.bb-pane { overflow: auto; min-width: 0; }
+.bb-main.two .bb-left { flex: 1; padding: 30px 36px 40px; }
+.bb-main.two .bb-right { flex: 1; padding: 30px 36px 40px; }
+.bb-divider { width: 3px; flex: none; background: #d9d9d9; position: relative; }
+.bb-divider::after { content: ""; position: absolute; left: -5px; top: 50%; width: 13px; height: 34px; margin-top: -17px; border-radius: 6px; background: #fff; border: 1.5px solid #9a9a9a; }
+.bb-main.one .bb-right { flex: 1; display: flex; justify-content: center; }
+.bb-main.one .bb-qwrap { width: 100%; max-width: 760px; padding: 30px 24px 40px; }
+.qhtml { font-family: var(--f-q); font-size: 17px; line-height: 1.62; overflow-wrap: break-word; }
+.qhtml p { margin: 0 0 .7em; }
+.qhtml p:last-child { margin-bottom: 0; }
+.qhtml svg, .qhtml img { max-width: 100%; height: auto; display: block; margin: 8px auto; }
+.qhtml figure { margin: 8px 0; overflow-x: auto; }
+.qhtml table { border-collapse: collapse; margin: 6px auto; font-family: var(--f-bb); font-size: 14.5px; }
+.qhtml th, .qhtml td { border: 1px solid #555; padding: 5px 9px; }
+.qhtml caption { font-weight: 700; padding-bottom: 6px; font-family: var(--f-bb); }
+.qhtml math { font-size: 1.08em; }
+.qhtml .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.qhtml .dap_copyright { font-size: 13px; color: #555; }
+.qhtml ul, .qhtml ol { padding-left: 1.4em; }
+.bb-qbar { display: flex; align-items: center; gap: 12px; background: var(--paper-soft); height: 38px; padding-right: 6px; border-bottom: 2px dashed #a7a7a7; margin-bottom: 18px; }
+.bb-num { background: #1e1e1e; color: #fff; font-weight: 700; width: 38px; height: 38px; display: grid; place-items: center; font-size: 16px; }
+.bb-qtype { font-size: 13px; font-weight: 600; color: #444; }
+.bb-mark { display: flex; align-items: center; gap: 6px; border: 0; background: none; color: #1e1e1e; font-size: 14px; font-weight: 600; padding: 4px 6px; }
+.bb-mark.on { color: #c22d2d; }
+.bb-mark.on span { color: #1e1e1e; }
+.bb-abc { margin-left: auto; border: 1.5px solid #1e1e1e; background: #fff; border-radius: 4px; padding: 1px 6px; font-size: 12px; font-weight: 700; position: relative; color: #1e1e1e; }
+.bb-abc span { position: relative; }
+.bb-abc span::after { content: ""; position: absolute; left: -3px; right: -3px; top: 50%; border-top: 1.5px solid currentColor; transform: rotate(-12deg); }
+.bb-abc.on { background: var(--bb-blue); color: #fff; border-color: var(--bb-blue); }
+.bb-stem { margin-bottom: 18px; }
+.bb-opts { display: flex; flex-direction: column; gap: 12px; }
+.opt-row { display: flex; align-items: center; gap: 10px; }
+.opt { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; text-align: left; border: 1.5px solid #6f6f6f; border-radius: 10px; padding: 11px 14px; background: #fff; color: #1e1e1e; min-height: 54px; position: relative; }
+button.opt:hover { border-color: #1e1e1e; box-shadow: 0 0 0 1px #1e1e1e inset; }
+.opt-l { width: 28px; height: 28px; flex: none; border: 2px solid #1e1e1e; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; font-family: var(--f-bb); }
+.opt-t { flex: 1; min-width: 0; font-size: 16.5px; }
+.opt-row.sel .opt { border-color: var(--bb-blue); box-shadow: 0 0 0 2px var(--bb-blue) inset; }
+.opt-row.sel .opt-l { background: var(--bb-blue); border-color: var(--bb-blue); color: #fff; }
+.opt-row.crossed .opt { color: #8a8a8a; }
+.opt-row.crossed .opt-l { border-color: #8a8a8a; }
+.opt-row.crossed .opt::after { content: ""; position: absolute; left: -8px; right: -8px; top: 50%; border-top: 2px solid #1e1e1e; }
+.opt-x { display: none; width: 40px; flex: none; border: 0; background: none; place-items: center; color: #1e1e1e; font-size: 13px; font-weight: 700; }
+.bb.elim .opt-x { display: grid; }
+.opt-x .xl { width: 24px; height: 24px; border: 1.5px solid #1e1e1e; border-radius: 50%; display: grid; place-items: center; position: relative; font-size: 12px; }
+.opt-x .xl::after { content: ""; position: absolute; left: -5px; right: -5px; top: 50%; border-top: 1.5px solid #1e1e1e; }
+.opt-x u { text-underline-offset: 3px; }
+.spr-box { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.spr-in { width: 180px; font-size: 22px; font-family: var(--f-bb); padding: 8px 12px; border: 1.5px solid #6f6f6f; border-radius: 8px; border-bottom: 4px solid #1e1e1e; color: #1e1e1e; background: #fff; }
+.spr-in:focus { outline: none; border-color: var(--bb-blue); }
+.spr-prev { font-size: 15px; color: #333; }
+.spr-dir { font-family: var(--f-bb); font-size: 14.5px; line-height: 1.6; color: #1e1e1e; }
+.spr-dir h3 { font-size: 16px; margin-bottom: 8px; }
+.spr-dir ul { padding-left: 1.2em; }
+.spr-ex { border-collapse: collapse; margin-top: 12px; font-size: 13.5px; }
+.spr-ex th, .spr-ex td { border: 1px solid #9a9a9a; padding: 4px 8px; text-align: left; }
+.bb-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px max(20px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px)); background: #e6edf8; border-top: 3px solid transparent; border-image: repeating-linear-gradient(90deg, #1e1e1e 0 12px, transparent 12px 17px, #8d8d8d 17px 23px, transparent 23px 28px) 3; }
+.bb-name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bb-navbtn { background: #1e1e1e; color: #fff; border: 0; border-radius: 8px; padding: 7px 14px; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.bb-btns { justify-self: end; display: flex; gap: 10px; }
+.bb-btn { background: var(--bb-blue); color: #fff; border: 0; border-radius: 22px; padding: 9px 26px; font-weight: 700; font-size: 15px; }
+.bb-btn:hover { background: var(--bb-blue-2); }
+.bb-btn.ghost { background: #fff; color: var(--bb-blue); border: 1.5px solid var(--bb-blue); }
+.bb-btn.small { padding: 5px 16px; font-size: 13px; }
+.bb-pop { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(600px, calc(100vw - 32px)); background: #fff; color: #1e1e1e; border-radius: 12px; box-shadow: 0 10px 34px rgba(0, 0, 0, .28); padding: 18px 20px; display: none; flex-direction: column; gap: 14px; z-index: 40; }
+.bb-pop.open { display: flex; }
+.bb-pop::after { content: ""; position: absolute; bottom: -10px; left: 50%; margin-left: -10px; border: 10px solid transparent; border-top-color: #fff; border-bottom: 0; }
+.bb-pop-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+.bb-pop .x, .notes-drawer .x { border: 0; background: none; font-size: 24px; line-height: 1; }
+.bb-legend { display: flex; gap: 18px; font-size: 13px; justify-content: center; flex-wrap: wrap; }
+.bb-legend span { display: flex; align-items: center; gap: 6px; }
+.lg { display: inline-grid; place-items: center; width: 16px; height: 16px; }
+.lg.un { border: 1.5px dashed #555; }
+.lg.cur { color: #1e1e1e; }
+.lg.rv { color: #c22d2d; }
+.bb-grid { display: flex; flex-wrap: wrap; gap: 14px 12px; justify-content: center; padding: 6px 0; }
+.g { position: relative; width: 40px; height: 40px; border: 1.5px dashed #1e1e1e; background: #fff; color: var(--bb-blue); font-weight: 700; font-size: 15px; }
+.g.done { background: var(--bb-blue); color: #fff; border: 1.5px solid var(--bb-blue); }
+.g .gpin { position: absolute; top: -15px; left: 50%; margin-left: -7px; color: #1e1e1e; }
+.g .gmark { position: absolute; top: -8px; right: -8px; color: #c22d2d; }
+.bb-check { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; padding: 34px 20px; gap: 12px; text-align: center; }
+.bb-check h2 { font-size: 26px; font-family: var(--f-bb); }
+.bb-check p { max-width: 560px; color: #333; margin: 0; }
+.bb-check-card { width: min(680px, 100%); border-radius: 12px; box-shadow: 0 2px 14px rgba(0, 0, 0, .14); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.bb-check-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+mark.hl { color: inherit; cursor: pointer; border-radius: 2px; }
+mark.hl-y { background: #fde68a; }
+mark.hl-b { background: #bfdbfe; }
+mark.hl-p { background: #fbcfe8; }
+mark.hl.has-note { border-bottom: 2px solid #b45309; }
+.hl-tools { position: fixed; z-index: 60; background: #1e1e1e; border-radius: 10px; padding: 6px 8px; display: flex; gap: 8px; align-items: center; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); }
+.sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; padding: 0; }
+.sw-y { background: #fde68a; } .sw-b { background: #bfdbfe; } .sw-p { background: #fbcfe8; }
+.sw.on { box-shadow: 0 0 0 2px #1e1e1e; }
+.hl-note-btn { border: 0; background: #fff; color: #1e1e1e; border-radius: 6px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
+.hl-card { position: fixed; z-index: 61; width: 290px; background: #fff; color: #1e1e1e; border-radius: 10px; box-shadow: 0 8px 26px rgba(0, 0, 0, .28); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.hl-card-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 14px; }
+.hl-colors { display: flex; gap: 6px; }
+.hl-colors .sw { border-color: #888; }
+.hl-card textarea { width: 100%; font: inherit; font-size: 14px; border: 1.5px solid #9a9a9a; border-radius: 6px; padding: 6px; color: #1e1e1e; background: #fff; }
+.hl-card-btns { display: flex; justify-content: space-between; align-items: center; }
+.hl-card .lnk.danger { color: #c22d2d; }
+.notes-drawer { position: fixed; right: 0; top: 0; bottom: 0; width: min(340px, 90vw); z-index: 45; background: #fff; color: #1e1e1e; box-shadow: -8px 0 24px rgba(0, 0, 0, .18); padding: calc(18px + env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) 18px 18px; overflow: auto; }
+.nd-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.nd-list { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 12px; }
+.nd-list li { border-bottom: 1px solid #e3e3e3; padding-bottom: 10px; font-size: 14px; }
+.nd-list p { margin: 4px 0; color: #444; }
+.ref-sheet h2 { font-family: var(--f-bb); margin-bottom: 12px; }
+.ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ref-grid div { border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--card-2); }
+.ref-grid p { margin: 4px 0 0; font-family: var(--f-q); }
+
+/* 解析模式 */
+.bb-verdict { text-align: center; font-weight: 800; font-size: 18px; display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.bb-verdict.ok { color: #24854a; }
+.bb-verdict.bad { color: #c22d2d; }
+.bb-verdict small { font-size: 12px; font-weight: 600; color: #555; }
+.bb-opts.review .opt { cursor: default; }
+.opt-row.right .opt { border-color: #24854a; box-shadow: 0 0 0 2px #24854a inset; background: #f0faf3; }
+.opt-row.right .opt-l { background: #24854a; border-color: #24854a; color: #fff; }
+.opt-row.wrongpick .opt { border-color: #c22d2d; box-shadow: 0 0 0 2px #c22d2d inset; background: #fdf1f0; }
+.opt-row.wrongpick .opt-l { background: #c22d2d; border-color: #c22d2d; color: #fff; }
+.tag { font-style: normal; font-size: 12px; font-weight: 800; border-radius: 5px; padding: 1px 8px; white-space: nowrap; flex: none; }
+.tag.ok { background: #24854a; color: #fff; }
+.tag.bad { background: #c22d2d; color: #fff; }
+.spr-result { display: flex; gap: 22px; flex-wrap: wrap; font-size: 16px; border: 1.5px solid #9a9a9a; border-radius: 10px; padding: 12px 16px; }
+.spr-result .ok { color: #24854a; } .spr-result .bad { color: #c22d2d; }
+.explain { margin-top: 26px; border-top: 2px dashed #b9b9b9; padding-top: 16px; }
+.explain h4, .note-box h4 { margin: 0 0 8px; font-size: 15px; font-family: var(--f-bb); }
+.explain .muted, .bb .muted { color: #6f6f6f; font-weight: 400; }
+.explain .qhtml { font-size: 15.5px; }
+.note-box { margin-top: 20px; background: #fff8e1; border: 1.5px solid #e6c766; border-radius: 10px; padding: 12px 14px; }
+.note-box textarea { width: 100%; color: #1e1e1e; background: #fff; border-color: #c9a640; font-family: var(--f-ui); }
+.note-box p { margin: 0; white-space: pre-wrap; }
+.nb-btns { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 8px; }
+.note-box .btn, .wb-row .btn { --line: #1e1e1e; --card: #fff; --ink: #1e1e1e; --card-2: #f4f4f4; }
+.wb-row { margin-top: 14px; display: flex; gap: 14px; align-items: center; font-size: 14px; }
+.wb-in { font-weight: 700; color: #24854a; }
+.wb-row .lnk.danger { color: #c22d2d; }
+.qv-dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 46vw; }
+.qd { width: 14px; height: 14px; border-radius: 50%; border: 0; padding: 0; }
+.qd.ok { background: #6cc28d; } .qd.bad { background: #e88a82; }
+.qd.cur { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1e1e1e; }
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 900px) {
+  .hero, .two-col { grid-template-columns: 1fr; }
+  .intro, .result-top { flex-direction: column; text-align: center; align-items: center; }
+  .intro-stats, .intro-btns, .result-btns { justify-content: center; }
+  .result-stats, .wk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bb-tool span { display: none; }
+  .bb-main.two { flex-direction: column; overflow: auto; }
+  .bb-main.two .bb-pane { flex: none; overflow: visible; padding: 20px; }
+  .bb-divider { width: auto; height: 3px; }
+  .bb-divider::after { display: none; }
+}
+@media (max-width: 600px) {
+  .brand span { display: none; }
+  .topbar-in { flex-wrap: wrap; }
+  .tabs { order: 3; flex-basis: 100%; }
+  .quest h1 { font-size: 28px; }
+  .cd-num .big { font-size: 84px; }
+  .weekmap { gap: 2px; }
+  .wm-dot { width: 34px; height: 34px; font-size: 20px; border-radius: 9px; }
+  .weekmap::before { top: 16px; }
+  .wm-date { display: none; }
+  .result-stats, .wk-grid { grid-template-columns: 1fr; }
+  .bb-top { grid-template-columns: minmax(0, 1fr) auto auto; padding-left: 12px; padding-right: 12px; }
+  .bb-sub { display: none; }
+  .bb-foot { grid-template-columns: auto 1fr; }
+  .bb-name { display: none; }
+  .qv-dots { display: none; }
+  .wb-due { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+}
+
+/* ---------- 登录 ---------- */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 24px max(16px, env(safe-area-inset-left, 0px)); }
+.login { width: min(400px, 100%); display: flex; flex-direction: column; gap: 8px; }
+.login h1 { font-family: var(--f-fun); font-weight: 400; font-size: 32px; text-align: center; }
+.login > p { margin: 0 0 8px; text-align: center; font-size: 14px; }
+.login-cat { display: grid; place-items: center; padding-top: 18px; }
+.login label { font-weight: 700; font-size: 14px; }
+.login input { font: inherit; color: var(--ink); background: var(--card); border: 3px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.login .btn { margin-top: 10px; }
+.login-err { color: var(--bad); font-weight: 700; text-align: left !important; }
+.small-note { font-size: 12px !important; margin-top: 6px !important; }
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toasts" aria-live="polite"></div>
+<script>
+/* Supabase 项目（公开密钥本来就写在网页里，安全靠数据库里的权限规则） */
+const SUPABASE_URL = 'https://xbvqmeczclyungmyyjae.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_0V0a2mFV57Fcw2fgIKaFtA_hk5QVEu0';
+
+'use strict';
+/* ============ 基础配置 ============ */
+const TZ = 'America/Los_Angeles';
+const START = '2026-10-15';
+const EXAM = '2026-12-05';
+const DAY_MS = 86400000;
+const SEC_LIMIT = { rw: 60 * 60000, math: 45 * 60000 };
+const REVIEW_PER_Q = { rw: 90000, math: 120000 };
+// 额外练习每题时长（按 hard 难度的实际用时估算）
+const EXTRA_PER_Q = {
+  chart: 90000, evidence: 85000, detail: 80000, inference: 90000, wic: 60000, structure: 75000,
+  crosstext: 95000, synthesis: 60000, transition: 50000, boundary: 50000, form: 50000,
+  psda: 100000, geo: 120000, alg: 95000, adv: 120000,
+};
+const SRS = [1, 3, 7, 14, 30]; // 错题复习间隔（天）
+const REWARD = { speed: 5, acc: 5, done: 5, review: 5 };
+const SEC_NAME = { rw: '阅读', math: '数学' };
+const SEC_FULL = { rw: 'Reading and Writing', math: 'Math' };
+const WD = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+/* ============ 工具函数 ============ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const clone = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+const sum = (arr, f = (x) => x) => arr.reduce((s, x) => s + (f(x) || 0), 0);
+
+let DEBUG_TODAY = null;
+try { DEBUG_TODAY = localStorage.getItem('sat:debugToday'); } catch (e) { /* storage blocked */ }
+
+function laDate(d) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+function todayStr() { return DEBUG_TODAY || laDate(new Date()); }
+function parseD(s) { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); }
+function addDays(s, n) { return new Date(parseD(s) + n * DAY_MS).toISOString().slice(0, 10); }
+function diffDays(a, b) { return Math.round((parseD(b) - parseD(a)) / DAY_MS); }
+function dow(s) { return new Date(parseD(s)).getUTCDay(); }
+function weekStart(s) { return addDays(s, -((dow(s) + 6) % 7)); }
+function md(s) { const p = s.split('-'); return `${+p[1]}月${+p[2]}日`; }
+function mdw(s) { return `${md(s)} ${WD[dow(s)]}`; }
+function fmtClock(ms) {
+  ms = Math.max(0, ms);
+  const t = Math.ceil(ms / 1000), m = Math.floor(t / 60), s = t % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+function fmtDur(ms) {
+  if (ms == null || isNaN(ms)) return '—';
+  const t = Math.round(ms / 1000), m = Math.floor(t / 60), s = t % 60;
+  return m ? `${m}分${String(s).padStart(2, '0')}秒` : `${s}秒`;
+}
+function fmtSec(ms) { return ms == null || isNaN(ms) ? '—' : `${Math.round(ms / 1000)}秒`; }
+function stripHtml(h) {
+  const d = document.createElement('div');
+  d.innerHTML = h || '';
+  d.querySelectorAll('svg,table,figure').forEach((x) => x.remove());
+  return d.textContent.replace(/\s+/g, ' ').trim();
+}
+
+/* ============ 存储：Supabase（云端）；本地调试时 ?local 用 localStorage ============ */
+let SB = null;
+const Store = {
+  mode: 'local', role: null, isOwner: true, canWrite: true, email: '',
+  cache: {},          // collection -> {id: data}
+  inflight: {}, queued: {},
+  // 返回 'ok' | 'login'（需要登录）| 'norole'（账号还没分配身份）
+  async init() {
+    if (location.search.includes('local')) { this.mode = 'local'; this.role = 'student'; return 'ok'; }
+    if (!window.supabase) throw new Error('数据库组件没有加载出来，请检查网络');
+    SB = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+    this.mode = 'cloud';
+    const { data } = await SB.auth.getSession();
+    if (!data.session) return 'login';
+    return this.afterLogin(data.session);
+  },
+  async afterLogin(session) {
+    this.email = session.user.email || '';
+    const { data, error } = await SB.from('profiles').select('role').eq('user_id', session.user.id).maybeSingle();
+    if (error || !data) { this.role = null; this.canWrite = false; this.isOwner = false; return 'norole'; }
+    this.role = data.role;
+    this.isOwner = this.role === 'student';
+    this.canWrite = this.role === 'student';
+    return 'ok';
+  },
+  async login(email, password) {
+    const { data, error } = await SB.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return this.afterLogin(data.session);
+  },
+  async logout() { if (SB) await SB.auth.signOut(); location.reload(); },
+  // 爸爸只能改兑换记录
+  canWriteDoc(col, id) { return this.canWrite || (this.role === 'parent' && col === 'meta' && id === 'ledger'); },
+  async loadAll(names) {
+    for (const n of names) this.cache[n] = {};
+    if (this.mode === 'cloud') {
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await SB.from('docs').select('col,id,data').range(from, from + 999);
+        if (error) { console.warn('load docs', error); break; }
+        for (const d of data) if (this.cache[d.col]) this.cache[d.col][d.id] = d.data;
+        if (data.length < 1000) break;
+      }
+    } else if (this.mode === 'local') {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k.startsWith('satdb:')) continue;
+          const [, col, id] = k.split(':');
+          if (this.cache[col]) this.cache[col][id] = JSON.parse(localStorage.getItem(k));
+        }
+      } catch (e) { console.warn('local load', e); }
+    }
+  },
+  get(col, id) { return (this.cache[col] || {})[id]; },
+  all(col) { return Object.values(this.cache[col] || {}); },
+  put(col, id, data) {
+    if (!this.cache[col]) this.cache[col] = {};
+    this.cache[col][id] = data;
+    if (!this.canWriteDoc(col, id)) return;
+    this._write(col, id);
+  },
+  del(col, id) {
+    if (this.cache[col]) delete this.cache[col][id];
+    if (!this.canWriteDoc(col, id)) return;
+    this._write(col, id, true);
+  },
+  async _send(col, id, isDelete) {
+    const data = this.cache[col] && this.cache[col][id];
+    if (this.mode === 'cloud') {
+      let res;
+      if (isDelete || data === undefined) res = await SB.from('docs').delete().eq('col', col).eq('id', id);
+      else if (this.role === 'parent') res = await SB.from('docs').update({ data: clone(data), updated_at: new Date().toISOString() }).eq('col', col).eq('id', id);
+      else res = await SB.from('docs').upsert({ col, id, data: clone(data), updated_at: new Date().toISOString() });
+      if (res.error) throw res.error;
+    } else if (this.mode === 'local') {
+      if (isDelete || data === undefined) localStorage.removeItem('satdb:' + col + ':' + id);
+      else localStorage.setItem('satdb:' + col + ':' + id, JSON.stringify(data));
+    }
+  },
+  // 同一文档一次只写一个请求，期间的修改合并成下一次写入
+  _write(col, id, isDelete) {
+    const key = col + '/' + id;
+    if (this.inflight[key]) { this.queued[key] = isDelete ? 'del' : 'set'; return; }
+    this.inflight[key] = true;
+    const run = async () => {
+      try {
+        try { await this._send(col, id, isDelete); }
+        catch (e) { await new Promise((r) => setTimeout(r, 800 + Math.random() * 800)); await this._send(col, id, isDelete); }
+        setSaveState('ok');
+      } catch (e) {
+        console.warn('write failed', key, e);
+        setSaveState('err');
+      } finally {
+        this.inflight[key] = false;
+        const q = this.queued[key];
+        if (q) { delete this.queued[key]; this._write(col, id, q === 'del'); }
+      }
+    };
+    run();
+  },
+  // 高频修改（作答、计时）先合并，停顿后再写
+  timers: {},
+  putSoon(col, id, data, ms = 1500) {
+    if (!this.cache[col]) this.cache[col] = {};
+    this.cache[col][id] = data;
+    const key = col + '/' + id;
+    clearTimeout(this.timers[key]);
+    this.timers[key] = setTimeout(() => this.put(col, id, this.cache[col][id]), ms);
+  },
+  flush() {
+    for (const key of Object.keys(this.timers)) {
+      clearTimeout(this.timers[key]);
+      const [col, id] = key.split('/');
+      if (this.cache[col] && this.cache[col][id]) this.put(col, id, this.cache[col][id]);
+    }
+    this.timers = {};
+  },
+};
+
+function setSaveState(s, code) {
+  const el = $('#saveState');
+  if (!el) return;
+  if (s === 'err') { el.textContent = '保存失败，请检查网络后刷新'; el.className = 'save-state err'; }
+  else { el.textContent = Store.mode === 'cloud' ? '已云端保存' : '已保存在本机'; el.className = 'save-state'; }
+}
+
+function toast(msg, kind = '') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(() => t.classList.add('out'), 2600);
+  setTimeout(() => t.remove(), 3100);
+}
+
+/* ============ 题库与周计划 ============ */
+let TYPES = {}, WEEKS = [], PLAN = [], QB = {};
+const TYPE_NAME = {
+  chart: '图表题', evidence: '文本证据题', detail: '细节题', inference: '推断题', wic: '词汇题',
+  structure: '结构目的题', crosstext: '双篇题', synthesis: '笔记整合题', transition: '过渡词题',
+  boundary: '标点边界题', form: '语法形式题',
+  psda: 'Problem-Solving & Data Analysis', geo: 'Geometry & Trigonometry', alg: 'Algebra', adv: 'Advanced Math',
+};
+const TYPE_SHORT = { psda: 'PSDA', geo: 'Geo & Trig', alg: 'Algebra', adv: 'Adv Math' };
+const typeName = (t) => TYPE_NAME[t] || (TYPES[t] && TYPES[t].name) || t;
+const typeShort = (t) => TYPE_SHORT[t] || typeName(t);
+const typeSec = (t) => (TYPES[t] && TYPES[t].sec) || (['psda', 'geo', 'alg', 'adv'].includes(t) ? 'math' : 'rw');
+
+// 题目只存在 Supabase（登录后才能读）；?local 调试时读本地 data/ 文件
+async function loadQuestions() {
+  if (Store.mode === 'cloud') {
+    const w = await SB.from('weeks').select('week,data').order('week');
+    if (w.error) throw w.error;
+    WEEKS = w.data.map((r) => ({ ...r.data, questions: {} }));
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await SB.from('questions').select('id,data').range(from, from + 999);
+      if (error) throw error;
+      for (const q of data) QB[q.id] = q.data;
+      if (data.length < 1000) break;
+    }
+    TYPES = (WEEKS[0] && WEEKS[0].types) || {};
+  } else {
+    const idx = await fetch('data/weeks.json').then((r) => r.json());
+    TYPES = idx.types || {};
+    WEEKS = await Promise.all(idx.weeks.map((w) => fetch('data/' + w.file).then((r) => r.json())));
+    for (const w of WEEKS) Object.assign(QB, w.questions);
+  }
+  PLAN = WEEKS.flatMap((w) => w.days.map((d) => ({ ...d, week: w.week })));
+  PLAN.sort((a, b) => (a.dates[0] < b.dates[0] ? -1 : 1));
+}
+
+/* ============ 判分 ============ */
+function parseNum(s) {
+  s = String(s).trim().replace(/\s/g, '');
+  if (!s) return NaN;
+  if (s.includes('/')) {
+    const [a, b] = s.split('/');
+    if (!b) return NaN;
+    const x = Number(a), y = Number(b);
+    return y === 0 ? NaN : x / y;
+  }
+  return Number(s);
+}
+function sprCorrect(input, answers) {
+  const norm = (x) => String(x).trim().replace(/\s/g, '').replace(/^\+/, '');
+  const u = norm(input);
+  if (!u) return false;
+  if (answers.some((a) => norm(a) === u)) return true;
+  const uv = parseNum(u);
+  if (isNaN(uv)) return false;
+  for (const a of answers) { const av = parseNum(a); if (!isNaN(av) && Math.abs(av - uv) < 1e-9) return true; }
+  const decs = (u.split('.')[1] || '').length;
+  if (!u.includes('/') && decs >= 3) {
+    for (const a of answers) if (String(a).includes('/') && Math.abs(parseNum(a) - uv) <= 0.0006) return true;
+  }
+  return false;
+}
+function isCorrect(q, a) {
+  if (!q || !a || a.c == null || a.c === '') return false;
+  return q.kind === 'mcq' ? a.c === q.ans : sprCorrect(a.c, q.ans);
+}
+function answerText(q) { return q.kind === 'mcq' ? q.ans : q.ans.join(' 或 '); }
+function gradeList(qids, ans) { return qids.reduce((c, id) => c + (isCorrect(QB[id], ans[id]) ? 1 : 0), 0); }
+
+/* ============ 计时（时间只在答题时走；关闭页面后照常倒计时） ============ */
+function timerUsed(t) { return Math.min(t.limitMs, t.usedMs + (t.runningSince ? Date.now() - t.runningSince : 0)); }
+function timerLeft(t) { return t.limitMs - timerUsed(t); }
+function timerStart(t) { if (!t.runningSince) t.runningSince = Date.now(); }
+function timerPause(t) { if (t.runningSince) { t.usedMs = timerUsed(t); t.runningSince = null; } }
+
+/* ============ 设置、账本、萌宠 ============ */
+function settings() { return Store.get('meta', 'settings') || { name: '', reviewCap: 0, unlocks: {} }; }
+function saveSettings(s) { Store.put('meta', 'settings', s); }
+function ledger() { return Store.get('meta', 'ledger') || { items: [] }; }
+function petState() { return Store.get('meta', 'pet') || { cat: 'orange', wear: null, hideDeco: [] }; }
+
+const LEVELS = [0, 20, 50, 90, 140, 200, 270, 350, 450, 600, 800, 1000];
+const PETS = [
+  { id: 'orange', name: '橘子', at: 0, desc: '元气满满的小橘猫，第一天就陪你' },
+  { id: 'tuxedo', name: '奥利奥', at: 70, desc: '冷静沉着的奶牛猫' },
+  { id: 'calico', name: '麻薯', at: 250, desc: '爱撒娇的三花猫' },
+];
+const WEARS = [
+  { id: 'bow', name: '粉色蝴蝶结', at: 25 },
+  { id: 'party', name: '派对帽', at: 100 },
+  { id: 'gradcap', name: '学士帽', at: 190 },
+  { id: 'crown', name: '小皇冠', at: 400 },
+  { id: 'wizard', name: '魔法帽', at: 650 },
+];
+const DECOS = [
+  { id: 'yarn', name: '毛线球', at: 10 },
+  { id: 'bed', name: '猫窝软垫', at: 45 },
+  { id: 'fishbowl', name: '小鱼缸', at: 140 },
+  { id: 'plant', name: '龟背竹', at: 320 },
+  { id: 'cattree', name: '猫爬架', at: 500 },
+  { id: 'trophy', name: '金奖杯', at: 800 },
+];
+function unlockAt(u) { const o = settings().unlocks || {}; return o[u.id] != null ? o[u.id] : u.at; }
+function allUnlocks() {
+  return [
+    ...PETS.map((x) => ({ ...x, kind: 'pet' })),
+    ...WEARS.map((x) => ({ ...x, kind: 'wear' })),
+    ...DECOS.map((x) => ({ ...x, kind: 'deco' })),
+  ].map((u) => ({ ...u, at: unlockAt(u) })).sort((a, b) => a.at - b.at);
+}
+const KIND_CN = { pet: '萌宠', wear: '配饰', deco: '小窝装饰' };
+function isUnlocked(id, coins = coinsEarned()) { const u = allUnlocks().find((x) => x.id === id); return !!u && coins >= u.at; }
+function nextUnlock(c) { return allUnlocks().find((u) => u.at > c) || null; }
+function levelOf(c) { let l = 1; LEVELS.forEach((t, i) => { if (c >= t) l = i + 1; }); return l; }
+function levelRange(c) { const l = levelOf(c); return { l, from: LEVELS[l - 1], to: LEVELS[l] ?? null }; }
+
+/* ============ 每日计划 ============ */
+const runOf = (id) => Store.get('runs', id);
+function todayPlan(T) {
+  // 今天排定的关卡，或今天提前开始的关卡（补做的不算）
+  return PLAN.find((p) => { const r = runOf(p.id); return r ? r.startedOn === T && !r.makeup : p.dates.includes(T); }) || null;
+}
+function makeups(T) {
+  return PLAN.filter((p) => {
+    const r = runOf(p.id);
+    if (r && (r.doneAt || (!r.makeup && r.startedOn === T))) return false;
+    return p.dates[p.dates.length - 1] < T;
+  });
+}
+function nextUpcoming(T) { return PLAN.find((p) => !runOf(p.id) && p.dates[0] > T) || null; }
+function planOfDate(d) { return PLAN.find((p) => { const r = runOf(p.id); return r ? r.startedOn === d : p.dates.includes(d); }) || null; }
+
+function newRun(p, T) {
+  const mk = (sec, list) => ({
+    limitMs: SEC_LIMIT[sec], usedMs: 0, runningSince: null, doneAt: null,
+    stages: list.map((st) => ({ type: st.type, qids: st.qids.slice(), status: 'todo', cur: 0, ans: {}, startUsed: null, timeMs: null, correct: null, total: st.qids.length, doneAt: null, hist: null })),
+  });
+  return { dayId: p.id, startedOn: T, createdAt: Date.now(), sections: { rw: mk('rw', p.reading), math: mk('math', p.math) }, doneAt: null, coins: {}, notes: {} };
+}
+function saveRun(run) { Store.put('runs', run.dayId, run); }
+
+// 该题型此前的平均正确率与平均每题用时（只统计每日新题）
+function histSnapshot(type, excludeDayId) {
+  let q = 0, c = 0, ms = 0;
+  for (const r of Store.all('runs')) {
+    if (r.dayId === excludeDayId) continue;
+    for (const sec of ['rw', 'math']) for (const st of r.sections[sec].stages) {
+      if (st.status !== 'done' || st.type !== type) continue;
+      q += st.total; c += st.correct; ms += st.timeMs || 0;
+    }
+  }
+  return q ? { q, acc: c / q, msPerQ: ms / q } : null;
+}
+
+function startRunStage(run, sec, idx) {
+  const S = run.sections[sec], st = S.stages[idx];
+  if (st.status === 'todo') { st.status = 'active'; st.startUsed = S.usedMs; st.hist = histSnapshot(st.type, run.dayId); }
+  timerStart(S);
+  saveRun(run);
+}
+
+function submitRunStage(run, sec, idx, timedOut) {
+  const S = run.sections[sec];
+  timerPause(S);
+  const finish = (st) => {
+    if (st.startUsed == null) { st.startUsed = S.usedMs; st.hist = histSnapshot(st.type, run.dayId); }
+    st.timeMs = Math.max(0, S.usedMs - st.startUsed);
+    st.status = 'done'; st.doneAt = Date.now();
+    st.correct = gradeList(st.qids, st.ans); st.total = st.qids.length;
+    collectWrong(st.qids, st.ans, 'day:' + run.dayId);
+  };
+  if (idx >= 0 && S.stages[idx].status !== 'done') finish(S.stages[idx]);
+  if (timedOut) { S.usedMs = S.limitMs; S.stages.forEach((st) => { if (st.status !== 'done') finish(st); }); }
+  if (S.stages.every((st) => st.status === 'done') && !S.doneAt) { S.doneAt = Date.now(); sectionReward(run, sec); }
+  if (run.sections.rw.doneAt && run.sections.math.doneAt && !run.doneAt) {
+    run.doneAt = Date.now();
+    run.coins.done = REWARD.done;
+    run.notes.done = '新题全部完成';
+  }
+  saveRun(run);
+}
+
+function sectionReward(run, sec) {
+  const S = run.sections[sec];
+  let n = 0, c = 0, ms = 0, expC = 0, expMs = 0;
+  for (const st of S.stages) {
+    if (!st.hist) continue;
+    n += st.total; c += st.correct; ms += st.timeMs || 0;
+    expC += st.hist.acc * st.total; expMs += st.hist.msPerQ * st.total;
+  }
+  const k = sec === 'rw' ? 'rw' : 'math';
+  if (!n) {
+    run.coins[k + 'Acc'] = 0; run.coins[k + 'Speed'] = 0;
+    run.notes[k + 'Acc'] = run.notes[k + 'Speed'] = '第一次练这些题型，先建立基线';
+    return;
+  }
+  const accT = c / n, accH = expC / n, msT = ms / n, msH = expMs / n;
+  const accWin = accT > accH + 1e-9 || accT === 1;
+  const speedWin = msT < msH && accT >= accH - 1e-9;
+  run.coins[k + 'Acc'] = accWin ? REWARD.acc : 0;
+  run.coins[k + 'Speed'] = speedWin ? REWARD.speed : 0;
+  run.notes[k + 'Acc'] = `正确率 ${Math.round(accT * 100)}%，往期 ${Math.round(accH * 100)}%`;
+  run.notes[k + 'Speed'] = `每题 ${fmtSec(msT)}，往期 ${fmtSec(msH)}` + (msT < msH && !speedWin ? '（正确率下降，不计速度奖）' : '');
+}
+const runCoins = (r) => sum(Object.values(r.coins || {}));
+
+/* ============ 错题本与艾宾浩斯复习 ============ */
+function collectWrong(qids, ans, from) {
+  const T = todayStr();
+  for (const id of qids) {
+    const q = QB[id];
+    if (!q || isCorrect(q, ans[id])) continue;
+    const last = ans[id] && ans[id].c != null ? ans[id].c : null;
+    const w = Store.get('wrong', id);
+    if (w) {
+      Object.assign(w, { stage: 0, due: addDays(T, 1), mastered: false, times: (w.times || 1) + 1, lastAns: last, lastFrom: from });
+      Store.put('wrong', id, w);
+    } else {
+      Store.put('wrong', id, { qid: id, sec: q.sec, type: q.type, addedOn: T, source: 'auto', from, stage: 0, due: addDays(T, 1), mastered: false, hist: [], times: 1, lastAns: last });
+    }
+  }
+}
+function addWrongManual(id, lastAns) {
+  const q = QB[id], T = todayStr();
+  if (!q || Store.get('wrong', id)) return;
+  Store.put('wrong', id, { qid: id, sec: q.sec, type: q.type, addedOn: T, source: 'manual', from: 'manual', stage: 0, due: addDays(T, 1), mastered: false, hist: [], times: 0, lastAns: lastAns ?? null });
+}
+function dueWrong(T) {
+  return Store.all('wrong')
+    .filter((w) => !w.mastered && w.due <= T && w.addedOn < T && QB[w.qid])
+    .sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : a.stage - b.stage));
+}
+function getOrCreateReview(T) {
+  let r = Store.get('reviews', T);
+  if (r) return r;
+  const due = dueWrong(T), cap = +settings().reviewCap || 0;
+  const mk = (sec) => {
+    let qids = due.filter((w) => w.sec === sec).map((w) => w.qid);
+    if (cap > 0) qids = qids.slice(0, cap);
+    return { qids, limitMs: qids.length * REVIEW_PER_Q[sec], usedMs: 0, runningSince: null, status: qids.length ? 'todo' : 'done', cur: 0, ans: {}, result: {}, correct: null, total: qids.length, doneAt: qids.length ? null : Date.now() };
+  };
+  r = { date: T, createdAt: Date.now(), sections: { rw: mk('rw'), math: mk('math') }, doneAt: null, coin: 0, empty: false };
+  if (!r.sections.rw.qids.length && !r.sections.math.qids.length) { r.empty = true; r.doneAt = Date.now(); }
+  Store.put('reviews', T, r);
+  return r;
+}
+function submitReviewSection(r, sec) {
+  const S = r.sections[sec];
+  timerPause(S);
+  S.status = 'done'; S.doneAt = Date.now();
+  let c = 0;
+  for (const id of S.qids) {
+    const ok = isCorrect(QB[id], S.ans[id]);
+    S.result[id] = ok;
+    if (ok) c++;
+    srsUpdate(id, ok, r.date, S.ans[id]);
+  }
+  S.correct = c; S.total = S.qids.length;
+  if (r.sections.rw.status === 'done' && r.sections.math.status === 'done' && !r.doneAt) {
+    r.doneAt = Date.now();
+    r.coin = r.date === todayStr() ? REWARD.review : 0;
+  }
+  Store.put('reviews', r.date, r);
+}
+function srsUpdate(id, ok, date, a) {
+  const w = Store.get('wrong', id);
+  if (!w) return;
+  w.hist = (w.hist || []).concat({ d: date, ok, a: a && a.c != null ? a.c : null });
+  if (ok) {
+    w.stage = (w.stage || 0) + 1;
+    if (w.stage >= SRS.length) { w.mastered = true; w.masteredOn = date; }
+    else w.due = addDays(date, SRS[w.stage]);
+  } else {
+    w.stage = 0; w.due = addDays(date, 1); w.times = (w.times || 1) + 1; w.lastAns = a && a.c != null ? a.c : null;
+  }
+  Store.put('wrong', id, w);
+}
+
+/* ============ 额外练习 ============ */
+function extraTypes() { const s = []; WEEKS.forEach((w) => Object.keys(w.extra || {}).forEach((t) => { if (!s.includes(t)) s.push(t); })); return s; }
+function extraPool(type) {
+  const used = new Set(Store.all('extras').flatMap((e) => e.qids));
+  return WEEKS.flatMap((w) => (w.extra || {})[type] || []).filter((id) => QB[id] && !used.has(id));
+}
+function newExtra(type, n) {
+  const qids = extraPool(type).slice(0, n);
+  const id = 'x' + uid();
+  const e = { id, type, sec: typeSec(type), date: todayStr(), qids, limitMs: qids.length * (EXTRA_PER_Q[type] || 90000), usedMs: 0, runningSince: null, status: 'todo', cur: 0, ans: {}, correct: null, total: qids.length, createdAt: Date.now() };
+  Store.put('extras', id, e);
+  return e;
+}
+function submitExtra(e) {
+  timerPause(e);
+  e.status = 'done'; e.doneAt = Date.now();
+  e.correct = gradeList(e.qids, e.ans); e.total = e.qids.length;
+  collectWrong(e.qids, e.ans, 'extra:' + e.id);
+  Store.put('extras', e.id, e);
+}
+
+/* ============ 今日状态、金币 ============ */
+function todayStatus(T = todayStr()) {
+  const p = todayPlan(T);
+  const run = p ? runOf(p.id) : null;
+  const rev = Store.get('reviews', T);
+  const dueN = rev ? rev.sections.rw.qids.length + rev.sections.math.qids.length : dueWrong(T).length;
+  const planDone = !p || !!(run && run.doneAt);
+  const revDone = rev ? !!rev.doneAt : dueN === 0;
+  return { T, p, run, rev, dueN, planDone, revDone, allDone: planDone && revDone, hasTasks: !!p || dueN > 0 };
+}
+function coinsEarned(before) {
+  const runs = Store.all('runs').filter((r) => !before || r.startedOn < before);
+  const revs = Store.all('reviews').filter((r) => !before || r.date < before);
+  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0);
+}
+function coinsOnDate(d) {
+  return sum(Store.all('runs').filter((r) => r.startedOn === d), runCoins) + ((Store.get('reviews', d) || {}).coin || 0);
+}
+function coinsRedeemed() { return sum(ledger().items.filter((i) => i.status === 'done'), (i) => i.coins); }
+function coinsPending() { return sum(ledger().items.filter((i) => i.status === 'pending'), (i) => i.coins); }
+function coinBalance() { return coinsEarned() - coinsRedeemed(); }
+
+/* ============ 周报 ============ */
+function weekReport(ws) {
+  const we = addDays(ws, 6);
+  const runs = Store.all('runs').filter((r) => r.startedOn >= ws && r.startedOn <= we);
+  const revs = Store.all('reviews').filter((r) => r.date >= ws && r.date <= we);
+  const acc = { rw: [0, 0], math: [0, 0] }, times = { rw: [], math: [] };
+  for (const r of runs) for (const sec of ['rw', 'math']) {
+    const S = r.sections[sec];
+    for (const st of S.stages) if (st.status === 'done') { acc[sec][0] += st.correct; acc[sec][1] += st.total; }
+    if (S.doneAt) times[sec].push(S.usedMs);
+  }
+  const revQ = sum(revs, (r) => (r.sections.rw.status === 'done' ? r.sections.rw.total : 0) + (r.sections.math.status === 'done' ? r.sections.math.total : 0));
+  const revC = sum(revs, (r) => (r.sections.rw.correct || 0) + (r.sections.math.correct || 0));
+  const coins = sum(runs, runCoins) + sum(revs, (r) => r.coin || 0);
+  const before = coinsEarned(ws), after = before + coins;
+  const avg = (a) => (a.length ? sum(a) / a.length : null);
+  return {
+    ws, we, runs, revs, coins, before, after,
+    rwAcc: acc.rw, mathAcc: acc.math, rwAvg: avg(times.rw), mathAvg: avg(times.math),
+    daysDone: runs.filter((r) => r.doneAt).length, reviewsDone: revs.filter((r) => r.doneAt && !r.empty).length,
+    revQ, revC, levelStart: levelOf(before), levelEnd: levelOf(after),
+    unlocked: allUnlocks().filter((u) => u.at > before && u.at <= after),
+  };
+}
+
+/* ============ 按题型统计（老师视图） ============ */
+function typeStats() {
+  const s = {};
+  const get = (t) => (s[t] ||= { type: t, q: 0, c: 0, ms: 0, sessions: [], xq: 0, xc: 0, rq: 0, rc: 0 });
+  for (const r of Store.all('runs')) for (const sec of ['rw', 'math']) for (const st of r.sections[sec].stages) {
+    if (st.status !== 'done') continue;
+    const x = get(st.type);
+    x.q += st.total; x.c += st.correct; x.ms += st.timeMs || 0;
+    x.sessions.push({ d: r.startedOn, acc: st.total ? st.correct / st.total : 0, n: st.total, at: st.doneAt });
+  }
+  for (const e of Store.all('extras')) if (e.status === 'done') { const x = get(e.type); x.xq += e.total; x.xc += e.correct; }
+  for (const rv of Store.all('reviews')) for (const sec of ['rw', 'math']) {
+    const S = rv.sections[sec];
+    if (S.status !== 'done') continue;
+    for (const id of S.qids) { const q = QB[id]; if (!q) continue; const x = get(q.type); x.rq++; if (S.result[id]) x.rc++; }
+  }
+  for (const w of Store.all('wrong')) { const x = get(w.type); x.wOpen = (x.wOpen || 0) + (w.mastered ? 0 : 1); x.wDone = (x.wDone || 0) + (w.mastered ? 1 : 0); }
+  Object.values(s).forEach((x) => x.sessions.sort((a, b) => a.at - b.at));
+  return s;
+}
+
+/* ============ 超时自动交卷 ============ */
+function checkTimers() {
+  if (!Store.canWrite) return false;
+  let changed = false;
+  for (const r of Store.all('runs')) for (const sec of ['rw', 'math']) {
+    const S = r.sections[sec];
+    if (S.runningSince && timerLeft(S) <= 0) { submitRunStage(r, sec, S.stages.findIndex((s) => s.status === 'active'), true); changed = true; }
+  }
+  for (const rv of Store.all('reviews')) for (const sec of ['rw', 'math']) {
+    const S = rv.sections[sec];
+    if (S.runningSince && timerLeft(S) <= 0) { submitReviewSection(rv, sec); changed = true; }
+  }
+  for (const e of Store.all('extras')) if (e.runningSince && timerLeft(e) <= 0) { submitExtra(e); changed = true; }
+  return changed;
+}
+
+/* ============ 像素萌宠 ============ */
+// 由 tools/pets.py 量出的头部位置（相对猫图宽高）
+const PET_META = {
+  orange: { w: 291, h: 320, headX: 0.4704, headTop: 0.0616, headW: 0.7685 },
+  tuxedo: { w: 230, h: 320, headX: 0.5008, headTop: 0.0997, headW: 0.7563 },
+  calico: { w: 315, h: 320, headX: 0.529, headTop: 0.0946, headW: 0.6935 },
+};
+// 配饰：[宽度占头宽比例, 底边相对头顶下移(按头宽), 水平偏移(按头宽)]
+const WEAR_FIT = { bow: [0.40, 0.10, 0.20], party: [0.36, 0.12, 0], gradcap: [0.66, 0.17, 0], crown: [0.44, 0.13, 0], wizard: [0.80, 0.22, 0] };
+
+function petHTML({ cat, wear, mode = 'idle', h = 150, extraClass = '' }) {
+  const m = PET_META[cat] || PET_META.orange;
+  let wearHTML = '';
+  if (wear && WEAR_FIT[wear]) {
+    const [f, dy, dx] = WEAR_FIT[wear];
+    const wPct = f * m.headW * 100;
+    const left = (m.headX + dx * m.headW - (f * m.headW) / 2) * 100;
+    const bottomY = m.headTop + dy * m.headW * (m.w / m.h);
+    wearHTML = `<img class="wear" alt="" src="img/acc_${wear}.png" style="width:${wPct.toFixed(2)}%;left:${left.toFixed(2)}%;bottom:${((1 - bottomY) * 100).toFixed(2)}%">`;
+  }
+  return `<div class="pet ${mode} ${extraClass}" style="--ph:${h}px;--pr:${m.w / m.h}">
+    <div class="pet-inner">
+      <img class="pose base" alt="" src="img/cat_${cat}.png">
+      <img class="pose blink" alt="" src="img/cat_${cat}_blink.png">
+      <img class="pose cheer" alt="" src="img/cat_${cat}_cheer.png">
+      ${wearHTML}
+    </div>
+    <div class="pet-shadow"></div>
+    <i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i><i class="spark s4"></i><i class="spark s5"></i>
+  </div>`;
+}
+
+function activePet(coins = coinsEarned()) {
+  const ps = petState();
+  const cat = isUnlocked(ps.cat, coins) ? ps.cat : 'orange';
+  const wear = ps.wear && isUnlocked(ps.wear, coins) ? ps.wear : null;
+  return { cat, wear, hideDeco: ps.hideDeco || [] };
+}
+function petName(id) { return (PETS.find((p) => p.id === id) || PETS[0]).name; }
+
+// 小窝场景：房间背景 + 已解锁的装饰 + 当前萌宠
+const DECO_POS = {
+  plant: { x: 0.215, b: 0.10, w: 0.105 },
+  fishbowl: { x: 0.095, b: 0.415, w: 0.072 },
+  yarn: { x: 0.33, b: 0.035, w: 0.07 },
+  cattree: { x: 0.70, b: 0.03, w: 0.105 },
+  trophy: { x: 0.885, b: 0.04, w: 0.062 },
+  bed: { x: 0.50, b: 0.012, w: 0.25 },
+};
+function roomHTML({ coins = coinsEarned(), mode = 'idle', id = '' } = {}) {
+  const ap = activePet(coins);
+  const decos = DECOS.filter((d) => coins >= unlockAt(d) && !ap.hideDeco.includes(d.id));
+  const hasBed = decos.some((d) => d.id === 'bed');
+  const decoHTML = decos.map((d) => {
+    const p = DECO_POS[d.id];
+    return `<img class="deco deco-${d.id}" alt="${esc(d.name)}" src="img/deco_${d.id}.png" style="left:${(p.x - p.w / 2) * 100}%;bottom:${p.b * 100}%;width:${p.w * 100}%">`;
+  }).join('');
+  return `<div class="room" ${id ? `id="${id}"` : ''}>
+    <img class="room-bg" alt="" src="img/room.webp">
+    ${decoHTML}
+    <div class="room-pet ${hasBed ? 'on-bed' : ''}" data-cat="${ap.cat}">${petHTML({ cat: ap.cat, wear: ap.wear, mode, h: 0, extraClass: 'fluid' })}</div>
+  </div>`;
+}
+
+// 点一下萌宠：跳一下
+function bindPetPoke(root) {
+  $$('.room-pet .pet, .pet.pokeable', root).forEach((el) => {
+    el.addEventListener('click', () => playPet(el, 'hop'));
+  });
+}
+function playPet(el, mode, ms) {
+  if (!el) return;
+  el.classList.remove('idle', 'hop', 'party');
+  void el.offsetWidth;
+  el.classList.add(mode);
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.classList.remove(mode); el.classList.add('idle'); }, ms || (mode === 'party' ? 2600 : 800));
+}
+
+/* ============ 题目 HTML 渲染 ============ */
+const MML = 'http://www.w3.org/1998/Math/MathML';
+// Chrome 的 MathML Core 不支持 <mfenced>，换成带括号的 <mrow>
+function fixMath(root) {
+  const list = [...root.getElementsByTagName('mfenced')].reverse();
+  for (const f of list) {
+    const open = f.hasAttribute('open') ? f.getAttribute('open') : '(';
+    const close = f.hasAttribute('close') ? f.getAttribute('close') : ')';
+    const seps = (f.hasAttribute('separators') ? f.getAttribute('separators') : ',').replace(/\s/g, '');
+    const row = document.createElementNS(MML, 'mrow');
+    const mo = (t) => { const o = document.createElementNS(MML, 'mo'); o.textContent = t; return o; };
+    if (open) row.appendChild(mo(open));
+    const kids = [...f.children];
+    kids.forEach((k, i) => {
+      row.appendChild(k);
+      if (i < kids.length - 1 && seps) row.appendChild(mo(seps[Math.min(i, seps.length - 1)]));
+    });
+    if (close) row.appendChild(mo(close));
+    f.replaceWith(row);
+  }
+}
+
+/* ============ 高亮与批注 ============ */
+function hlTextNodes(root) {
+  const out = [];
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.parentElement && n.parentElement.closest('svg,math') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  let n;
+  while ((n = w.nextNode())) out.push(n);
+  return out;
+}
+function hlOffset(root, container, offset) {
+  const r = document.createRange();
+  r.setStart(root, 0);
+  r.setEnd(container, offset);
+  const frag = r.cloneContents();
+  frag.querySelectorAll('svg,math').forEach((x) => x.remove());
+  return frag.textContent.length;
+}
+function applyHL(root, list) {
+  list.forEach((h, idx) => {
+    let pos = 0;
+    for (const t of hlTextNodes(root)) {
+      const len = t.length, a = pos, b = pos + len;
+      pos = b;
+      if (b <= h.s || a >= h.e) continue;
+      let node = t;
+      const s = Math.max(h.s - a, 0), e = Math.min(h.e - a, len);
+      if (e < len) node.splitText(e);
+      if (s > 0) node = node.splitText(s);
+      const mark = document.createElement('mark');
+      mark.className = 'hl hl-' + (h.c || 'y') + (h.n ? ' has-note' : '');
+      mark.dataset.h = h.i ?? idx;
+      node.parentNode.insertBefore(mark, node);
+      mark.appendChild(node);
+    }
+  });
+}
+
+/* ============ 作答会话 ============ */
+let PR = null;
+function makeSession(ctx) {
+  if (ctx.kind === 'run') {
+    const run = runOf(ctx.id), S = run.sections[ctx.sec], st = S.stages[ctx.idx];
+    return {
+      ctx, qids: st.qids, ans: st.ans, timer: S, holder: st, sec: ctx.sec,
+      title: `Section ${ctx.sec === 'rw' ? 1 : 2}: ${SEC_FULL[ctx.sec]}`,
+      chip: `关卡 ${ctx.idx + 1}/${S.stages.length} · ${typeName(st.type)}`,
+      save: (now) => (now ? saveRun(run) : Store.putSoon('runs', run.dayId, run)),
+      submit: (timedOut) => { submitRunStage(run, ctx.sec, ctx.idx, timedOut); },
+      after: () => go('stage', { id: ctx.id, sec: ctx.sec, idx: ctx.idx, fresh: true }),
+    };
+  }
+  if (ctx.kind === 'review') {
+    const r = Store.get('reviews', ctx.id), S = r.sections[ctx.sec];
+    return {
+      ctx, qids: S.qids, ans: S.ans, timer: S, holder: S, sec: ctx.sec,
+      title: `错题巩固: ${SEC_FULL[ctx.sec]}`,
+      chip: `${SEC_NAME[ctx.sec]}错题 · ${S.qids.length} 题`,
+      save: (now) => (now ? Store.put('reviews', r.date, r) : Store.putSoon('reviews', r.date, r)),
+      submit: () => submitReviewSection(r, ctx.sec),
+      after: () => go('reviewDone', { id: ctx.id, sec: ctx.sec, fresh: true }),
+    };
+  }
+  const e = Store.get('extras', ctx.id);
+  return {
+    ctx, qids: e.qids, ans: e.ans, timer: e, holder: e, sec: e.sec,
+    title: `额外练习: ${SEC_FULL[e.sec]}`,
+    chip: `${typeName(e.type)} · ${e.qids.length} 题 · 不计金币`,
+    save: (now) => (now ? Store.put('extras', e.id, e) : Store.putSoon('extras', e.id, e)),
+    submit: () => submitExtra(e),
+    after: () => go('extraDone', { id: e.id, fresh: true }),
+  };
+}
+
+function startSession(ctx) {
+  if (ctx.kind === 'run') startRunStage(runOf(ctx.id), ctx.sec, ctx.idx);
+  else {
+    const obj = ctx.kind === 'review' ? Store.get('reviews', ctx.id).sections[ctx.sec] : Store.get('extras', ctx.id);
+    if (obj.status === 'todo') obj.status = 'active';
+    timerStart(obj);
+    if (ctx.kind === 'review') Store.put('reviews', ctx.id, Store.get('reviews', ctx.id)); else Store.put('extras', ctx.id, obj);
+  }
+  const sess = makeSession(ctx);
+  PR = { sess, elim: false, nav: false, hideTimer: false, check: false, qStart: Date.now(), warned: timerLeft(sess.timer) <= 300000 };
+  if (sess.holder.cur == null || sess.holder.cur >= sess.qids.length) sess.holder.cur = 0;
+  renderPractice();
+  clearInterval(window._tick);
+  window._tick = setInterval(tickPractice, 500);
+}
+
+function curQid() { return PR.sess.qids[PR.sess.holder.cur]; }
+function ansOf(qid) { const s = PR.sess; return (s.ans[qid] ||= {}); }
+function trackTime() {
+  if (!PR || PR.check) { if (PR) PR.qStart = Date.now(); return; }
+  const now = Date.now(), a = ansOf(curQid());
+  a.t = (a.t || 0) + (now - PR.qStart);
+  PR.qStart = now;
+}
+
+function tickPractice() {
+  if (!PR || VIEW.name !== 'practice') { clearInterval(window._tick); return; }
+  const left = timerLeft(PR.sess.timer);
+  const el = $('#bbClock');
+  if (el) { el.textContent = fmtClock(left); el.parentElement.classList.toggle('low', left <= 300000); }
+  if (!PR.warned && left <= 300000 && left > 0) { PR.warned = true; toast('还剩 5 分钟', 'warn'); }
+  if (left <= 0) finishSession(true);
+}
+
+function finishSession(timedOut) {
+  if (!PR) return;
+  trackTime();
+  clearInterval(window._tick);
+  const sess = PR.sess;
+  PR = null;
+  sess.submit(timedOut);
+  Store.flush();
+  if (timedOut) toast('时间到，已自动交卷', 'warn');
+  sess.after();
+}
+
+function leavePractice() {
+  trackTime();
+  PR.sess.save(true);
+  clearInterval(window._tick);
+  PR = null;
+  go('home');
+}
+
+/* ============ Bluebook 风格界面 ============ */
+const ICON = {
+  bookmark: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z" fill="currentColor"/></svg>',
+  bookmarkO: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 3h12v18l-6-4.5L6 21z" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 20h4L19 9l-4-4L4 16z M14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  calc: '<svg viewBox="0 0 24 24" width="20" height="20"><rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 7h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  ref: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 3h9l3 3v15H6z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 10h6M9 14h6M9 18h4" stroke="currentColor" stroke-width="1.8"/></svg>',
+  exit: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  caret: '<svg viewBox="0 0 12 12" width="11" height="11"><path d="M2 8l4-4 4 4" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 2a6 6 0 0 0-6 6c0 4.5 6 12 6 12s6-7.5 6-12a6 6 0 0 0-6-6z" fill="currentColor"/></svg>',
+};
+
+function sprDirections() {
+  return `<div class="spr-dir">
+    <h3>Student-produced response directions</h3>
+    <ul>
+      <li>答案可能不止一个时，只填其中一个。</li>
+      <li>正数最多填 5 个字符，负数最多 6 个字符（负号算一个）。</li>
+      <li>可以填分数或小数；小数位数过多时，填满所给的位数即可。</li>
+      <li>分数不用化简；不能写带分数（3½ 要写成 7/2 或 3.5）。</li>
+      <li>不要输入 %、$、逗号等符号。</li>
+    </ul>
+    <table class="spr-ex"><tr><th>答案</th><th>可以填</th><th>不能填</th></tr>
+      <tr><td>3.5</td><td>3.5 · 7/2</td><td>3 1/2</td></tr>
+      <tr><td>2/3</td><td>2/3 · .6666 · .6667 · 0.666 · 0.667</td><td>0.66 · .66</td></tr>
+      <tr><td>−1/3</td><td>-1/3 · -.3333 · -0.333</td><td>-.33</td></tr></table>
+  </div>`;
+}
+
+function renderPractice() {
+  const s = PR.sess;
+  const n = s.qids.length;
+  const i = s.holder.cur;
+  const qid = s.qids[i];
+  const q = QB[qid];
+  const a = s.ans[qid] || {};
+  const left = timerLeft(s.timer);
+  const isMath = s.sec === 'math';
+  const name = settings().name || '我';
+  let main;
+  if (PR.check) {
+    main = `<div class="bb-check">
+      <h2>Check Your Work</h2>
+      <p>交卷前检查一下：未作答的题会按错题计算，交卷后可以看到答案和解析。</p>
+      <div class="bb-check-card">
+        <div class="bb-check-head"><b>${esc(s.chip)}</b>${navLegend()}</div>
+        <div class="bb-grid">${navGrid(true)}</div>
+      </div>
+    </div>`;
+  } else {
+    const twoPane = (q.stim && q.stim.trim()) || (isMath && q.kind === 'spr');
+    const leftPane = q.stim && q.stim.trim()
+      ? `<div class="qhtml hl-zone" data-k="p">${q.stim}</div>`
+      : sprDirections();
+    main = `<div class="bb-main ${twoPane ? 'two' : 'one'} ${isMath ? 'math' : 'rw'}">
+      ${twoPane ? `<section class="bb-pane bb-left">${leftPane}</section><div class="bb-divider"></div>` : ''}
+      <section class="bb-pane bb-right">
+        <div class="bb-qwrap">
+          <div class="bb-qbar">
+            <span class="bb-num">${i + 1}</span>
+            <button class="bb-mark ${a.m ? 'on' : ''}" id="bbMark">${a.m ? ICON.bookmark : ICON.bookmarkO}<span>Mark for Review</span></button>
+            ${q.kind === 'mcq' ? `<button class="bb-abc ${PR.elim ? 'on' : ''}" id="bbElim" title="划掉选项"><span>ABC</span></button>` : ''}
+          </div>
+          <div class="qhtml bb-stem hl-zone" data-k="s">${q.stem}</div>
+          ${q.kind === 'mcq' ? `<div class="bb-opts">${q.opts.map((o, k) => optRow(o, 'ABCD'[k], a)).join('')}</div>` : sprInput(a)}
+        </div>
+      </section>
+    </div>`;
+  }
+  $('#app').innerHTML = `<div class="bb ${PR.elim ? 'elim' : ''}">
+    <header class="bb-top">
+      <div class="bb-title">
+        <div class="bb-sec">${esc(s.title)}</div>
+        <div class="bb-sub"><span class="bb-chip">${esc(s.chip)}</span></div>
+      </div>
+      <div class="bb-timer ${left <= 300000 ? 'low' : ''} ${PR.hideTimer ? 'hidden' : ''}">
+        <div class="bb-clock" id="bbClock">${fmtClock(left)}</div>
+        <button class="bb-hide" id="bbHide">${PR.hideTimer ? 'Show' : 'Hide'}</button>
+      </div>
+      <div class="bb-tools">
+        ${isMath ? `<a class="bb-tool" href="https://www.desmos.com/calculator" target="_blank" rel="noopener">${ICON.calc}<span>Calculator</span></a>
+        <button class="bb-tool" id="bbRef">${ICON.ref}<span>Reference</span></button>` : ''}
+        <button class="bb-tool" id="bbNotes">${ICON.pen}<span>Highlights &amp; Notes</span></button>
+        <button class="bb-tool" id="bbExit">${ICON.exit}<span>保存退出</span></button>
+      </div>
+    </header>
+    <div class="bb-rule"></div>
+    ${main}
+    <footer class="bb-foot">
+      <div class="bb-name">${esc(name)}</div>
+      <button class="bb-navbtn" id="bbNav">${PR.check ? '检查页' : `Question ${i + 1} of ${n}`} ${ICON.caret}</button>
+      <div class="bb-btns">
+        ${PR.check || i > 0 ? '<button class="bb-btn" id="bbBack">Back</button>' : ''}
+        ${PR.check ? '<button class="bb-btn primary" id="bbSubmit">提交本关</button>' : '<button class="bb-btn" id="bbNext">Next</button>'}
+      </div>
+    </footer>
+    <div class="bb-pop ${PR.nav ? 'open' : ''}" id="bbPop">
+      <div class="bb-pop-head"><b>${esc(s.chip)}</b><button class="x" id="bbPopX" aria-label="关闭">×</button></div>
+      ${navLegend()}
+      <div class="bb-grid">${navGrid(false)}</div>
+      <button class="bb-btn ghost" id="bbGoCheck">Go to Review Page</button>
+    </div>
+    <div class="hl-tools" id="hlTools" hidden>
+      <button data-c="y" class="sw sw-y" title="黄色高亮"></button><button data-c="b" class="sw sw-b" title="蓝色高亮"></button><button data-c="p" class="sw sw-p" title="粉色高亮"></button>
+      <button data-c="note" class="hl-note-btn">批注</button>
+    </div>
+    <div class="hl-card" id="hlCard" hidden></div>
+    <aside class="notes-drawer" id="notesDrawer" hidden></aside>
+  </div>`;
+  postRenderPractice();
+}
+
+function optRow(html, L, a) {
+  const sel = a.c === L, crossed = (a.x || []).includes(L);
+  return `<div class="opt-row ${sel ? 'sel' : ''} ${crossed ? 'crossed' : ''}" data-l="${L}">
+    <button class="opt" data-l="${L}"><span class="opt-l">${L}</span><span class="qhtml opt-t">${html}</span></button>
+    <button class="opt-x" data-l="${L}" title="${crossed ? '恢复' : '划掉'} ${L}">${crossed ? '<u>Undo</u>' : `<span class="xl">${L}</span>`}</button>
+  </div>`;
+}
+function sprInput(a) {
+  return `<div class="spr-box">
+    <input id="sprIn" class="spr-in" autocomplete="off" spellcheck="false" maxlength="6" value="${esc(a.c || '')}" aria-label="填写答案">
+    <div class="spr-prev">Answer Preview: <b id="sprPrev">${esc(a.c || '')}</b></div>
+  </div>`;
+}
+function navLegend() {
+  return `<div class="bb-legend"><span><i class="lg cur">${ICON.pin}</i>Current</span><span><i class="lg un"></i>Unanswered</span><span><i class="lg rv">${ICON.bookmark}</i>For Review</span></div>`;
+}
+function navGrid(fromCheck) {
+  const s = PR.sess;
+  return s.qids.map((id, k) => {
+    const a = s.ans[id] || {};
+    const answered = a.c != null && a.c !== '';
+    return `<button class="g ${answered ? 'done' : ''} ${a.m ? 'rv' : ''} ${!fromCheck && k === s.holder.cur && !PR.check ? 'cur' : ''}" data-k="${k}">
+      ${!fromCheck && k === s.holder.cur && !PR.check ? `<i class="gpin">${ICON.pin}</i>` : ''}${k + 1}${a.m ? `<i class="gmark">${ICON.bookmark}</i>` : ''}</button>`;
+  }).join('');
+}
+
+function gotoQ(k) {
+  trackTime();
+  PR.check = false;
+  PR.nav = false;
+  PR.sess.holder.cur = Math.max(0, Math.min(PR.sess.qids.length - 1, k));
+  PR.sess.save();
+  renderPractice();
+}
+
+function postRenderPractice() {
+  const root = $('.bb');
+  fixMath(root);
+  const s = PR.sess;
+  $('#bbHide').onclick = () => { PR.hideTimer = !PR.hideTimer; $('.bb-timer').classList.toggle('hidden', PR.hideTimer); $('#bbHide').textContent = PR.hideTimer ? 'Show' : 'Hide'; };
+  $('#bbExit').onclick = () => confirmBox('保存并退出？', '作答已保存。按规定倒计时不会暂停，回来时会接着剩余时间作答，时间到会自动交卷。', '保存退出', leavePractice);
+  $('#bbNav').onclick = () => { PR.nav = !PR.nav; $('#bbPop').classList.toggle('open', PR.nav); };
+  $('#bbPopX').onclick = () => { PR.nav = false; $('#bbPop').classList.remove('open'); };
+  $('#bbGoCheck').onclick = () => { trackTime(); PR.check = true; PR.nav = false; renderPractice(); };
+  $$('#bbPop .g, .bb-check .g').forEach((b) => (b.onclick = () => gotoQ(+b.dataset.k)));
+  const back = $('#bbBack');
+  if (back) back.onclick = () => (PR.check ? gotoQ(s.qids.length - 1) : gotoQ(s.holder.cur - 1));
+  const next = $('#bbNext');
+  if (next) next.onclick = () => {
+    if (s.holder.cur < s.qids.length - 1) gotoQ(s.holder.cur + 1);
+    else { trackTime(); PR.check = true; renderPractice(); }
+  };
+  const sub = $('#bbSubmit');
+  if (sub) sub.onclick = () => {
+    const un = s.qids.filter((id) => !(s.ans[id] && s.ans[id].c != null && s.ans[id].c !== '')).length;
+    confirmBox('提交本关？', un ? `还有 ${un} 题没作答，提交后按错题计算。` : '全部作答完毕，提交后可以查看答案和解析。', '提交', () => finishSession(false));
+  };
+  const ref = $('#bbRef');
+  if (ref) ref.onclick = showReference;
+  $('#bbNotes').onclick = toggleNotesDrawer;
+  if (PR.check) return;
+
+  const qid = curQid(), q = QB[qid];
+  const mark = $('#bbMark');
+  mark.onclick = () => { const a = ansOf(qid); a.m = !a.m; s.save(); mark.classList.toggle('on', a.m); mark.innerHTML = (a.m ? ICON.bookmark : ICON.bookmarkO) + '<span>Mark for Review</span>'; };
+  const el = $('#bbElim');
+  if (el) el.onclick = () => { PR.elim = !PR.elim; el.classList.toggle('on', PR.elim); root.classList.toggle('elim', PR.elim); };
+  $$('.opt').forEach((b) => (b.onclick = () => {
+    const a = ansOf(qid), L = b.dataset.l;
+    a.c = L;
+    a.x = (a.x || []).filter((x) => x !== L);
+    s.save();
+    $$('.opt-row').forEach((r) => {
+      r.classList.toggle('sel', r.dataset.l === L);
+      if (r.dataset.l === L) { r.classList.remove('crossed'); r.querySelector('.opt-x').innerHTML = `<span class="xl">${L}</span>`; }
+    });
+  }));
+  $$('.opt-x').forEach((b) => (b.onclick = () => {
+    const a = ansOf(qid), L = b.dataset.l;
+    a.x = a.x || [];
+    const row = b.closest('.opt-row');
+    if (a.x.includes(L)) { a.x = a.x.filter((x) => x !== L); row.classList.remove('crossed'); b.innerHTML = `<span class="xl">${L}</span>`; }
+    else {
+      a.x.push(L); row.classList.add('crossed'); b.innerHTML = '<u>Undo</u>';
+      if (a.c === L) { a.c = null; row.classList.remove('sel'); }
+    }
+    s.save();
+  }));
+  const inp = $('#sprIn');
+  if (inp) {
+    inp.oninput = () => {
+      let v = inp.value.replace(/[^0-9./\-]/g, '');
+      const max = v.startsWith('-') ? 6 : 5;
+      v = v.slice(0, max);
+      if (v !== inp.value) inp.value = v;
+      ansOf(qid).c = v;
+      $('#sprPrev').textContent = v;
+      s.save();
+    };
+  }
+  // 高亮
+  const a = s.ans[qid] || {};
+  $$('.hl-zone').forEach((z) => applyHL(z, (a.hl || []).map((h, i) => ({ ...h, i })).filter((h) => h.k === z.dataset.k)));
+  bindHighlighting(qid);
+}
+
+function bindHighlighting(qid) {
+  const tools = $('#hlTools'), card = $('#hlCard');
+  const bb = $('.bb');
+  let pending = null;
+  const hide = () => { tools.hidden = true; pending = null; };
+  bb.addEventListener('mouseup', (ev) => {
+    if (ev.target.closest('#hlTools,#hlCard')) return;
+    setTimeout(() => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) { hide(); return; }
+      const r = sel.getRangeAt(0);
+      const zone = (r.commonAncestorContainer.nodeType === 1 ? r.commonAncestorContainer : r.commonAncestorContainer.parentElement).closest('.hl-zone');
+      if (!zone) { hide(); return; }
+      const s0 = hlOffset(zone, r.startContainer, r.startOffset), e0 = hlOffset(zone, r.endContainer, r.endOffset);
+      if (e0 - s0 < 1) { hide(); return; }
+      pending = { k: zone.dataset.k, s: s0, e: e0 };
+      const rect = r.getBoundingClientRect();
+      tools.hidden = false;
+      tools.style.left = Math.max(8, Math.min(window.innerWidth - 220, rect.left + rect.width / 2 - 100)) + 'px';
+      tools.style.top = Math.max(8, rect.top - 46) + 'px';
+    }, 0);
+  });
+  tools.onmousedown = (e) => e.preventDefault();
+  tools.onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b || !pending) return;
+    const a = ansOf(qid);
+    a.hl = a.hl || [];
+    const h = { ...pending, c: b.dataset.c === 'note' ? 'y' : b.dataset.c, n: '' };
+    a.hl.push(h);
+    PR.sess.save();
+    window.getSelection().removeAllRanges();
+    hide();
+    rerenderHL(qid);
+    if (b.dataset.c === 'note') openHLCard(qid, a.hl.length - 1);
+  };
+  bb.addEventListener('click', (e) => {
+    const m = e.target.closest('mark.hl');
+    if (m && !e.target.closest('.opt')) { openHLCard(qid, +m.dataset.h, m); return; }
+    if (!e.target.closest('#hlCard,#hlTools,#notesDrawer')) card.hidden = true;
+  });
+}
+function rerenderHL(qid) {
+  const a = ansOf(qid);
+  $$('.hl-zone').forEach((z) => {
+    z.querySelectorAll('mark.hl').forEach((m) => { m.replaceWith(...m.childNodes); });
+    z.normalize();
+    applyHL(z, (a.hl || []).map((h, i) => ({ ...h, i })).filter((h) => h.k === z.dataset.k));
+  });
+  if (!$('#notesDrawer').hidden) fillNotesDrawer();
+}
+function openHLCard(qid, idx, markEl) {
+  const a = ansOf(qid), h = a.hl[idx], card = $('#hlCard');
+  if (!h) return;
+  const m = markEl || $(`mark.hl[data-h="${idx}"]`);
+  const rect = m ? m.getBoundingClientRect() : { left: 200, bottom: 200 };
+  card.innerHTML = `<div class="hl-card-head"><span>批注</span>
+      <span class="hl-colors">${['y', 'b', 'p'].map((c) => `<button class="sw sw-${c} ${h.c === c ? 'on' : ''}" data-c="${c}"></button>`).join('')}</span></div>
+    <textarea id="hlNote" rows="3" placeholder="写下你的想法…">${esc(h.n || '')}</textarea>
+    <div class="hl-card-btns"><button class="lnk danger" id="hlDel">删除高亮</button><button class="bb-btn small" id="hlSave">保存</button></div>`;
+  card.hidden = false;
+  card.style.left = Math.max(8, Math.min(window.innerWidth - 300, rect.left)) + 'px';
+  card.style.top = Math.min(window.innerHeight - 200, rect.bottom + 8) + 'px';
+  card.querySelectorAll('.sw').forEach((b) => (b.onclick = () => { h.c = b.dataset.c; PR.sess.save(); rerenderHL(qid); openHLCard(qid, idx); }));
+  $('#hlSave').onclick = () => { h.n = $('#hlNote').value.trim(); PR.sess.save(); card.hidden = true; rerenderHL(qid); };
+  $('#hlDel').onclick = () => { a.hl.splice(idx, 1); PR.sess.save(); card.hidden = true; rerenderHL(qid); };
+  $('#hlNote').focus();
+}
+function toggleNotesDrawer() {
+  const d = $('#notesDrawer');
+  d.hidden = !d.hidden;
+  if (!d.hidden) fillNotesDrawer();
+}
+function fillNotesDrawer() {
+  const d = $('#notesDrawer');
+  if (PR.check) { d.innerHTML = '<div class="nd-head"><b>Highlights &amp; Notes</b><button class="x" id="ndX">×</button></div><p class="muted">回到题目页查看高亮。</p>'; $('#ndX').onclick = toggleNotesDrawer; return; }
+  const qid = curQid(), a = ansOf(qid), zones = {};
+  $$('.hl-zone').forEach((z) => (zones[z.dataset.k] = z));
+  const items = (a.hl || []).map((h, i) => {
+    const txt = [...$$(`mark.hl[data-h="${i}"]`)].map((m) => m.textContent).join('');
+    return `<li><mark class="hl hl-${h.c}">${esc(txt.slice(0, 120))}</mark>${h.n ? `<p>${esc(h.n)}</p>` : ''}<button class="lnk" data-i="${i}">编辑</button></li>`;
+  }).join('');
+  d.innerHTML = `<div class="nd-head"><b>Highlights &amp; Notes</b><button class="x" id="ndX" aria-label="关闭">×</button></div>
+    <p class="muted">选中题目文字即可高亮；点高亮可写批注。</p>
+    <ul class="nd-list">${items || '<li class="muted">这道题还没有高亮。</li>'}</ul>`;
+  $('#ndX').onclick = toggleNotesDrawer;
+  d.querySelectorAll('button[data-i]').forEach((b) => (b.onclick = () => openHLCard(qid, +b.dataset.i)));
+}
+
+function showReference() {
+  modal(`<div class="ref-sheet">
+    <h2>Reference</h2>
+    <div class="ref-grid">
+      <div><b>圆</b><p>A = πr²　C = 2πr</p></div>
+      <div><b>长方形</b><p>A = ℓw</p></div>
+      <div><b>三角形</b><p>A = ½bh</p></div>
+      <div><b>勾股定理</b><p>c² = a² + b²</p></div>
+      <div><b>特殊直角三角形</b><p>30°-60°-90°：x, x√3, 2x<br>45°-45°-90°：s, s, s√2</p></div>
+      <div><b>长方体</b><p>V = ℓwh</p></div>
+      <div><b>圆柱</b><p>V = πr²h</p></div>
+      <div><b>球</b><p>V = 4⁄3 πr³</p></div>
+      <div><b>圆锥</b><p>V = 1⁄3 πr²h</p></div>
+      <div><b>棱锥</b><p>V = 1⁄3 ℓwh</p></div>
+    </div>
+    <p class="muted">圆周 360°，等于 2π 弧度；三角形内角和 180°。</p>
+  </div>`);
+}
+
+/* ============ 路由与外壳 ============ */
+let VIEW = { name: 'home', params: {} };
+let ROLE = 'student';
+const VIEWS = {};
+
+function go(name, params = {}) {
+  if (PR && name !== 'practice') { trackTime(); PR.sess.save(true); clearInterval(window._tick); PR = null; }
+  VIEW = { name, params };
+  const fn = VIEWS[name] || VIEWS.home;
+  fn(params);
+  if (name !== 'practice') window.scrollTo(0, 0);
+}
+
+function shell(content, active) {
+  const coins = coinsEarned();
+  const tabs = ROLE === 'student'
+    ? [['home', '今日'], ['wrong', '错题本'], ['records', '练习记录'], ['extra', '额外练习'], ['pet', '萌宠小窝'], ['weekly', '周报']]
+    : ROLE === 'parent' ? [['parent', '家长视图'], ['teacher', '老师视图']] : [['teacher', '老师视图']];
+  const ap = activePet(coins);
+  return `<div class="shell">
+    <header class="topbar"><div class="topbar-in">
+      <button class="brand" data-go="${ROLE === 'student' ? 'home' : ROLE}"><img alt="" src="img/cat_${ap.cat}.png"><span>喵喵 SAT 通关</span></button>
+      <nav class="tabs" aria-label="页面">${tabs.map(([k, l]) => `<button class="tab ${active === k ? 'on' : ''}" data-go="${k}">${l}</button>`).join('')}</nav>
+      <div class="top-right">
+        <span class="pill coin-pill" title="可兑换金币（1 金币 = 1 美元）"><i class="coin"></i><b>${coinBalance()}</b></span>
+        <span class="pill lv-pill" title="萌宠等级（看累计金币）">Lv ${levelOf(coins)}</span>
+      </div>
+    </div></header>
+    <main class="page">${content}</main>
+    <footer class="foot">
+      <span id="saveState" class="save-state">${Store.mode === 'cloud' ? '数据保存在云端' : '本机调试模式：数据只存在这个浏览器'}</span>
+      ${Store.mode === 'cloud' ? `<span class="muted">${esc(Store.email)} · <button class="lnk" id="logoutBtn">退出登录</button></span>` : ''}
+      ${ROLE === 'student' ? `<span class="foot-links"><button class="lnk" data-go="parent">家长视图</button><button class="lnk" data-go="teacher">老师视图</button><button class="lnk" data-go="settings">设置</button></span>` : ''}
+      <span class="muted">美西时间 ${mdw(todayStr())}</span>
+    </footer>
+  </div>`;
+}
+function mount(html, active) {
+  $('#app').innerHTML = shell(html, active);
+  fixMath($('#app'));
+  const lo = $('#logoutBtn');
+  if (lo) lo.onclick = () => Store.logout();
+}
+
+/* ============ 弹窗 ============ */
+function modal(html, opts = {}) {
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `<div class="modal ${opts.cls || ''}" role="dialog" aria-modal="true">${html}${opts.noClose ? '' : '<button class="modal-x" aria-label="关闭">×</button>'}</div>`;
+  document.body.appendChild(back);
+  const close = () => { back.remove(); if (opts.onClose) opts.onClose(); };
+  if (!opts.noClose) {
+    back.querySelector('.modal-x').onclick = close;
+    back.addEventListener('mousedown', (e) => { if (e.target === back) close(); });
+  }
+  fixMath(back);
+  return { el: back, close };
+}
+function confirmBox(title, text, okLabel, onOk) {
+  const m = modal(`<h3 class="m-title">${esc(title)}</h3><p class="m-text">${esc(text)}</p>
+    <div class="m-btns"><button class="btn ghost" id="cbNo">再想想</button><button class="btn primary" id="cbOk">${esc(okLabel)}</button></div>`, { cls: 'small' });
+  m.el.querySelector('#cbNo').onclick = m.close;
+  m.el.querySelector('#cbOk').onclick = () => { m.close(); onOk(); };
+}
+
+/* ============ 今日任务流程 ============ */
+function dayStages(run) { return [...run.sections.rw.stages.map((s, i) => ({ sec: 'rw', idx: i, st: s })), ...run.sections.math.stages.map((s, i) => ({ sec: 'math', idx: i, st: s }))]; }
+function nextTask(T = todayStr()) {
+  const s = todayStatus(T);
+  if (s.p) {
+    if (!s.run) return { kind: 'start', p: s.p };
+    for (const sec of ['rw', 'math']) {
+      const idx = s.run.sections[sec].stages.findIndex((x) => x.status !== 'done');
+      if (idx >= 0) return { kind: 'stage', id: s.run.dayId, sec, idx };
+    }
+  }
+  if (!s.revDone) {
+    if (!s.rev) { const due = dueWrong(T); return { kind: 'review', sec: due.some((w) => w.sec === 'rw') ? 'rw' : 'math', fresh: true }; }
+    for (const sec of ['rw', 'math']) if (s.rev.sections[sec].status !== 'done') return { kind: 'review', sec };
+  }
+  return null;
+}
+function runTask(t) {
+  const T = todayStr();
+  if (!t) return;
+  if (t.kind === 'start') {
+    const run = newRun(t.p, T);
+    if (t.p.dates[0] > T) run.early = true;
+    saveRun(run);
+    go('intro', { kind: 'run', id: run.dayId, sec: 'rw', idx: 0 });
+  } else if (t.kind === 'stage') {
+    const st = runOf(t.id).sections[t.sec].stages[t.idx];
+    if (st.status === 'active') { VIEW = { name: 'practice', params: {} }; startSession({ kind: 'run', id: t.id, sec: t.sec, idx: t.idx }); }
+    else go('intro', { kind: 'run', id: t.id, sec: t.sec, idx: t.idx });
+  } else if (t.kind === 'review') {
+    const r = getOrCreateReview(T);
+    if (r.empty) { toast('今天没有到期的错题'); go('home'); return; }
+    let sec = t.sec;
+    if (r.sections[sec].status === 'done') sec = sec === 'rw' ? 'math' : 'rw';
+    if (r.sections[sec].status === 'active') { VIEW = { name: 'practice', params: {} }; startSession({ kind: 'review', id: T, sec }); }
+    else go('intro', { kind: 'review', id: T, sec });
+  }
+}
+function startMakeup(p) {
+  const T = todayStr();
+  let run = runOf(p.id);
+  if (!run) { run = newRun(p, T); run.makeup = true; saveRun(run); }
+  for (const sec of ['rw', 'math']) {
+    const idx = run.sections[sec].stages.findIndex((x) => x.status !== 'done');
+    if (idx >= 0) {
+      if (run.sections[sec].stages[idx].status === 'active') { VIEW = { name: 'practice', params: {} }; startSession({ kind: 'run', id: run.dayId, sec, idx }); }
+      else go('intro', { kind: 'run', id: run.dayId, sec, idx });
+      return;
+    }
+  }
+}
+
+/* ============ 首页 ============ */
+VIEWS.home = () => {
+  if (ROLE !== 'student') return go(ROLE === 'teacher' ? 'teacher' : 'parent');
+  const T = todayStr();
+  const s = todayStatus(T);
+  const coins = coinsEarned();
+  const total = diffDays(START, EXAM), passed = Math.max(0, Math.min(total, diffDays(START, T)));
+  const left = Math.max(0, diffDays(T, EXAM));
+  const p100 = ((passed / total) * 100).toFixed(1);
+  const nu = nextUnlock(coins);
+  const ap = activePet(coins);
+  const html = `
+  <section class="hero">
+    ${questCard(s)}
+    <div class="card countdown">
+      <div class="cd-label">距离 <b>12月5日</b> SAT 考试</div>
+      <div class="cd-num"><span class="big">${left}</span><span class="unit">天</span></div>
+      <div class="pxbar" role="progressbar" aria-valuenow="${p100}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p100}%"></i></div>
+      <div class="cd-foot"><span>10月15日 出发</span><span>备考已走过 <b>${p100}%</b></span></div>
+      <div class="cd-week">${weekNo(T)}</div>
+    </div>
+  </section>
+  ${makeupHTML(T)}
+  <section class="card weekmap-card">
+    <div class="sec-head"><h2>本周地图</h2><span class="muted">${md(weekStart(T))} – ${md(addDays(weekStart(T), 6))}</span></div>
+    ${weekMapHTML(T)}
+  </section>
+  <section class="card room-card">
+    <div class="sec-head"><h2>${esc(petName(ap.cat))}的小窝</h2><button class="lnk" data-go="pet">换装与解锁 →</button></div>
+    ${roomHTML({ coins, id: 'homeRoom' })}
+    <div class="unlock-line">
+      ${nu ? `<span>再得 <b>${nu.at - coins}</b> 金币解锁${KIND_CN[nu.kind]}「${esc(nu.name)}」</span><div class="pxbar thin"><i style="width:${pct(coins - prevUnlockAt(coins), nu.at - prevUnlockAt(coins))}%"></i></div>` : '<span>所有萌宠和装饰都已解锁！</span>'}
+    </div>
+  </section>`;
+  mount(html, 'home');
+  bindPetPoke($('#homeRoom'));
+  const cta = $('#ctaMain');
+  if (cta) cta.onclick = () => runTask(nextTask(T));
+  const early = $('#ctaEarly');
+  if (early) early.onclick = () => { const p = nextUpcoming(T); if (p) confirmBox('提前开始？', `把 ${mdw(p.dates[0])} 的关卡挪到今天做。金币照常计算，那天就变成错题巩固日。`, '提前开始', () => runTask({ kind: 'start', p })); };
+  const settle = $('#ctaSettle');
+  if (settle) settle.onclick = () => showSettlement(T);
+  $$('.mk-go').forEach((b) => (b.onclick = () => startMakeup(PLAN.find((p) => p.id === b.dataset.id))));
+  maybeGuide(s);
+  if (!$('.modal-back') && !$('.guide')) maybeSettle();
+};
+function prevUnlockAt(c) { const xs = allUnlocks().filter((u) => u.at <= c); return xs.length ? xs[xs.length - 1].at : 0; }
+function weekNo(T) { const w = WEEKS.find((x) => T >= x.start && T <= x.end); return w ? `${w.label}` : ''; }
+
+function stageChip(st, sec, active) {
+  const done = st.status === 'done';
+  return `<li class="stage-chip ${done ? 'done' : ''} ${active ? 'now' : ''}">
+    <span class="sc-sec ${sec}">${SEC_NAME[sec]}</span>
+    <span class="sc-name">${esc(typeShort(st.type))}</span>
+    <span class="sc-n">${done ? `${st.correct}/${st.total}` : `×${st.total ?? st.qids.length}`}</span>
+  </li>`;
+}
+
+function questCard(s) {
+  const T = s.T;
+  const t = nextTask(T);
+  let title, sub = '', chips = '', cta = '', extra = '';
+  if (s.p) {
+    const label = `${PLAN_LABEL(s.p)}`;
+    const list = s.run ? dayStages(s.run) : [...s.p.reading.map((x) => ({ sec: 'rw', st: { type: x.type, qids: x.qids, total: x.qids.length, status: 'todo' } })), ...s.p.math.map((x) => ({ sec: 'math', st: { type: x.type, qids: x.qids, total: x.qids.length, status: 'todo' } }))];
+    chips = `<ol class="stage-list">${list.map((x) => stageChip(x.st, x.sec, t && t.kind === 'stage' && t.sec === x.sec && t.idx === x.idx)).join('')}
+      <li class="stage-chip review ${s.revDone ? 'done' : ''}"><span class="sc-sec rv">巩固</span><span class="sc-name">错题巩固</span><span class="sc-n">${s.dueN ? `${s.dueN} 题` : '无到期'}</span></li></ol>`;
+    title = s.allDone ? '今日已通关！' : '今日关卡';
+    sub = `${label} · 阅读 60 分钟 · 数学 45 分钟`;
+  } else if (s.dueN > 0) {
+    title = s.allDone ? '今日已通关！' : '今天是错题巩固日';
+    sub = '把到期的错题再做一遍，按艾宾浩斯曲线安排';
+    chips = `<ol class="stage-list"><li class="stage-chip review ${s.revDone ? 'done' : ''}"><span class="sc-sec rv">巩固</span><span class="sc-name">错题巩固</span><span class="sc-n">${s.dueN} 题</span></li></ol>`;
+  } else {
+    title = '今天没有关卡';
+    const nu = nextUpcoming(T);
+    sub = nu ? `下一关在 ${mdw(nu.dates[0])}。今天没有到期的错题，可以休息，也可以提前开始。` : '本周的关卡都排完了。周日把下周的题型告诉 Claude，就会更新题目。';
+    if (nu) extra = '<button class="btn ghost" id="ctaEarly">提前开始下一关</button>';
+  }
+  if (t) {
+    const label = t.kind === 'start' ? '开始今天练习'
+      : t.kind === 'stage' ? (runOf(t.id).sections[t.sec].stages[t.idx].status === 'active' ? '继续答题' : (dayStages(runOf(t.id)).every((x) => x.st.status === 'todo') ? '开始今天练习' : '进入下一关'))
+        : '开始错题巩固';
+    cta = `<button class="btn primary big" id="ctaMain">${label}<span class="cta-arrow">▶</span></button>`;
+  } else if (s.hasTasks && s.allDone) {
+    cta = '<button class="btn primary big" id="ctaSettle">查看今日结算</button>';
+    extra = '<button class="btn ghost" data-go="extra">去做额外练习</button>';
+  }
+  return `<div class="card quest ${s.allDone && s.hasTasks ? 'cleared' : ''}">
+    <div class="quest-head"><div><h1>${title}</h1><p class="muted">${sub}</p></div>
+      <div class="quest-date"><span>${md(T)}</span><b>${WD[dow(T)]}</b></div></div>
+    ${chips}
+    <div class="quest-cta">${cta}${extra}</div>
+  </div>`;
+}
+function PLAN_LABEL(p) { const w = WEEKS.find((x) => x.week === p.week); return `${w ? w.label : ''} ${p.label || mdw(p.dates[0])}`; }
+
+function makeupHTML(T) {
+  const ms = makeups(T);
+  if (!ms.length) return '';
+  return `<section class="card makeup">
+    <div class="sec-head"><h2>待补关卡</h2><span class="muted">漏掉的新题留在这里，不会挤进明天</span></div>
+    <ul class="mk-list">${ms.map((p) => { const r = runOf(p.id); return `<li><span><b>${esc(PLAN_LABEL(p))}</b>　原定 ${mdw(p.dates[0])}${r ? ' · 已开始' : ''}</span><button class="btn small mk-go" data-id="${p.id}">${r ? '继续补做' : '补做'}</button></li>`; }).join('')}</ul>
+  </section>`;
+}
+
+function weekMapHTML(T) {
+  const ws = weekStart(T);
+  const nodes = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(ws, i);
+    const p = planOfDate(d);
+    const r = p ? runOf(p.id) : null;
+    const rev = Store.get('reviews', d);
+    let state = 'rest', label = '休息';
+    if (p) {
+      label = '新题';
+      state = r && r.doneAt ? 'clear' : d < T ? 'miss' : d === T ? 'today' : 'future';
+    } else if (d < T) {
+      if (rev && !rev.empty) { label = '巩固'; state = rev.doneAt ? 'clear' : 'miss'; }
+    } else if (d === T) {
+      state = 'today';
+      label = (rev && !rev.empty) || dueWrong(d).length ? '巩固' : '休息';
+      if (rev && rev.doneAt && !rev.empty) state = 'clear';
+    } else { label = '巩固'; state = 'future'; }
+    const c = coinsOnDate(d);
+    nodes.push(`<li class="wm-node ${state}">
+      <div class="wm-dot">${state === 'clear' ? '★' : state === 'miss' ? '!' : i + 1}</div>
+      <div class="wm-day">${WD[dow(d)]}</div><div class="wm-date">${md(d)}</div>
+      <div class="wm-tag">${label}</div>${c ? `<div class="wm-coin"><i class="coin sm"></i>${c}</div>` : ''}
+    </li>`);
+  }
+  return `<ol class="weekmap">${nodes.join('')}</ol>`;
+}
+
+/* ============ 每日首次打开的引导 ============ */
+function maybeGuide(s) {
+  const cta = $('#ctaMain');
+  if (!cta) return;
+  const notStarted = s.p && !s.run;
+  if (!notStarted) return;
+  const key = 'sat:guide:' + s.T;
+  try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* 继续显示 */ }
+  const r = cta.getBoundingClientRect();
+  const g = document.createElement('div');
+  g.className = 'guide';
+  g.style.height = document.documentElement.scrollHeight + 'px';
+  g.innerHTML = `<div class="guide-hole" style="left:${r.left - 10}px;top:${r.top + window.scrollY - 10}px;width:${r.width + 20}px;height:${r.height + 20}px"></div>
+    <div class="guide-bubble" style="left:${Math.max(16, Math.min(window.innerWidth - 336, r.left))}px;top:${r.bottom + window.scrollY + 22}px">
+      <div class="gb-cat">${petHTML({ cat: activePet().cat, wear: activePet().wear, h: 64, mode: 'idle' })}</div>
+      <div><b>今天的关卡准备好啦！</b><p>先阅读后数学，做完还有错题巩固。点上面的「开始今天练习」出发。</p>
+      <button class="btn small" id="guideOk">知道了</button></div>
+    </div>`;
+  document.body.appendChild(g);
+  const close = () => g.remove();
+  g.querySelector('#guideOk').onclick = close;
+  g.querySelector('.guide-hole').onclick = () => { close(); cta.click(); };
+}
+
+/* ============ 关卡开始页 ============ */
+VIEWS.intro = (p) => {
+  let title, kicker, info, n, left, sub;
+  const ap = activePet();
+  if (p.kind === 'run') {
+    const run = runOf(p.id), S = run.sections[p.sec], st = S.stages[p.idx];
+    const all = dayStages(run), pos = all.findIndex((x) => x.sec === p.sec && x.idx === p.idx);
+    kicker = `第 ${pos + 1} / ${all.length} 关 · ${SEC_NAME[p.sec]}`;
+    title = typeName(st.type);
+    n = st.qids.length;
+    left = timerLeft(S);
+    sub = `${SEC_NAME[p.sec]}部分共 ${S.stages.length} 关，共用 ${SEC_LIMIT[p.sec] / 60000} 分钟倒计时。看解析时不计时。`;
+    const h = histSnapshot(st.type, run.dayId);
+    info = h ? `往期这个题型：正确率 ${Math.round(h.acc * 100)}% · 每题 ${fmtSec(h.msPerQ)}` : '第一次练这个题型，这次的成绩会成为基线。';
+  } else {
+    const r = Store.get('reviews', p.id), S = r.sections[p.sec];
+    kicker = `错题巩固 · ${SEC_NAME[p.sec]}`;
+    title = `${SEC_NAME[p.sec]}错题重做`;
+    n = S.qids.length;
+    left = timerLeft(S);
+    sub = `每题 ${REVIEW_PER_Q[p.sec] / 1000} 秒，共 ${fmtClock(S.limitMs)}。答对的题按 3/7/14/30 天再复习，答错的明天再来。`;
+    info = `${p.sec === 'rw' ? (r.sections.math.qids.length ? `做完还有数学错题 ${r.sections.math.qids.length} 题` : '') : ''}`;
+  }
+  mount(`<section class="intro card">
+    <div class="intro-pet">${petHTML({ cat: ap.cat, wear: ap.wear, h: 150, mode: 'idle', extraClass: 'pokeable' })}</div>
+    <div class="intro-body">
+      <div class="kicker">${esc(kicker)}</div>
+      <h1 class="intro-title">${esc(title)}</h1>
+      <div class="intro-stats"><div><b>${n}</b><span>题</span></div><div><b>${fmtClock(left)}</b><span>剩余时间</span></div><div><b>Hard</b><span>难度</span></div></div>
+      <p>${esc(sub)}</p>
+      ${info ? `<p class="muted">${esc(info)}</p>` : ''}
+      <div class="intro-btns"><button class="btn ghost" data-go="home">回首页</button><button class="btn primary big" id="goPlay">开始答题 ▶</button></div>
+    </div>
+  </section>`, 'home');
+  bindPetPoke($('.intro'));
+  $('#goPlay').onclick = () => { VIEW = { name: 'practice', params: {} }; startSession({ kind: p.kind, id: p.id, sec: p.sec, idx: p.idx }); };
+};
+VIEWS.practice = () => { if (PR) renderPractice(); else go('home'); };
+
+/* ============ 关卡总结 ============ */
+function nextInRun(run) {
+  for (const sec of ['rw', 'math']) {
+    const idx = run.sections[sec].stages.findIndex((x) => x.status !== 'done');
+    if (idx >= 0) return { kind: 'stage', id: run.dayId, sec, idx };
+  }
+  return null;
+}
+function nextButton(nx, fromSec) {
+  const T = todayStr();
+  if (!nx) {
+    const s = todayStatus(T);
+    if (s.hasTasks && s.allDone) return '<button class="btn primary big" id="nxBtn" data-act="settle">今日结算 ▶</button>';
+    return '<button class="btn primary big" data-go="home">回首页</button>';
+  }
+  let label;
+  if (nx.kind === 'stage') {
+    const st = runOf(nx.id).sections[nx.sec].stages[nx.idx];
+    label = nx.sec !== fromSec && fromSec === 'rw' ? `进入数学：${typeShort(st.type)}` : `下一关：${typeShort(st.type)}`;
+  } else if (nx.kind === 'review') label = fromSec && nx.sec !== fromSec && !nx.fresh ? `下一部分：${SEC_NAME[nx.sec]}错题` : '开始错题巩固';
+  else label = '继续';
+  return `<button class="btn primary big" id="nxBtn">${label} ▶</button>`;
+}
+function bindNext(nx) {
+  const b = $('#nxBtn');
+  if (!b) return;
+  b.onclick = () => {
+    if (b.dataset.act === 'settle') { go('home'); if (!$('.settle-modal')) showSettlement(todayStr()); return; }
+    if (nx.kind === 'stage') go('intro', { kind: 'run', id: nx.id, sec: nx.sec, idx: nx.idx });
+    else runTask(nx);
+  };
+}
+function qgridHTML(qids, ans, resultMap) {
+  return `<div class="qgrid">${qids.map((id, i) => {
+    const ok = resultMap ? resultMap[id] : isCorrect(QB[id], ans[id]);
+    const blank = !(ans[id] && ans[id].c != null && ans[id].c !== '');
+    return `<button class="qg ${ok ? 'ok' : 'bad'}" data-i="${i}" title="${ok ? '答对' : blank ? '未作答' : '答错'}"><span>${i + 1}</span><i>${ok ? '✓' : blank ? '–' : '✗'}</i></button>`;
+  }).join('')}</div>`;
+}
+function bindQgrid(qids, ans, title, back) {
+  $$('.qg').forEach((b) => (b.onclick = () => go('qview', { list: qids.map((id) => ({ qid: id, a: ans[id] })), idx: +b.dataset.i, title, back })));
+}
+
+VIEWS.stage = (p) => {
+  const run = runOf(p.id), S = run.sections[p.sec], st = S.stages[p.idx];
+  const h = st.hist;
+  const accR = st.total ? st.correct / st.total : 0;
+  const good = h ? accR >= h.acc : accR >= 0.7;
+  const ap = activePet();
+  const T = todayStr();
+  const nx = nextInRun(run) || (run.startedOn === T && !run.makeup ? nextTask(T) : null);
+  const diff = h ? Math.round(accR * 100) - Math.round(h.acc * 100) : null;
+  const all = dayStages(run), pos = all.findIndex((x) => x.sec === p.sec && x.idx === p.idx);
+  mount(`<section class="card result">
+    <div class="result-top">
+      <div class="result-pet">${petHTML({ cat: ap.cat, wear: ap.wear, h: 150, mode: p.fresh ? (good ? 'party' : 'hop') : 'idle', extraClass: 'pokeable' })}</div>
+      <div class="result-main">
+        <div class="kicker">第 ${pos + 1} / ${all.length} 关 · ${SEC_NAME[p.sec]} · ${esc(PLAN_LABEL(PLAN.find((x) => x.id === run.dayId)))}</div>
+        <h1 class="result-title">${good ? '关卡完成！' : '关卡完成'}<span>${esc(typeName(st.type))}</span></h1>
+        <div class="result-stats">
+          <div class="rs"><span>正确率</span><b>${Math.round(accR * 100)}%</b><small>${st.correct} / ${st.total} 题</small></div>
+          <div class="rs"><span>往期同题型平均</span><b>${h ? Math.round(h.acc * 100) + '%' : '—'}</b><small>${h ? (diff >= 0 ? `高出 ${diff} 个百分点` : `低了 ${-diff} 个百分点`) : '第一次练，记为基线'}</small></div>
+          <div class="rs"><span>用时</span><b>${fmtClock(st.timeMs)}</b><small>每题 ${fmtSec(st.timeMs / st.total)}${h ? `，往期 ${fmtSec(h.msPerQ)}` : ''}</small></div>
+        </div>
+        ${S.doneAt ? `<p class="sec-done">${SEC_NAME[p.sec]}部分全部完成，共用 ${fmtDur(S.usedMs)}。${coinLine(run, p.sec)}</p>` : `<p class="muted">${SEC_NAME[p.sec]}倒计时已暂停，剩余 ${fmtClock(timerLeft(S))}。进入下一关后继续。</p>`}
+      </div>
+    </div>
+    <div class="sec-head"><h2>逐题回顾</h2><span class="muted">点题号看正确答案与解析，可以写笔记；错题已自动收进错题本</span></div>
+    ${qgridHTML(st.qids, st.ans)}
+    <div class="result-btns">${nextButton(nx, p.sec)}<button class="btn ghost" data-go="home">回首页</button></div>
+  </section>`, 'home');
+  bindPetPoke($('.result'));
+  bindQgrid(st.qids, st.ans, `${typeName(st.type)} · ${md(run.startedOn)}`, { name: 'stage', params: { id: p.id, sec: p.sec, idx: p.idx } });
+  bindNext(nx);
+};
+function coinLine(run, sec) {
+  const k = sec === 'rw' ? 'rw' : 'math';
+  const got = (run.coins[k + 'Speed'] || 0) + (run.coins[k + 'Acc'] || 0);
+  return got ? `本部分奖励 <b class="coin-txt">+${got}</b> 金币。` : '';
+}
+
+VIEWS.reviewDone = (p) => {
+  const r = Store.get('reviews', p.id), S = r.sections[p.sec];
+  const ap = activePet();
+  const other = p.sec === 'rw' ? 'math' : 'rw';
+  const nx = r.sections[other].status !== 'done' ? { kind: 'review', sec: other } : null;
+  const good = S.total && S.correct / S.total >= 0.6;
+  mount(`<section class="card result">
+    <div class="result-top">
+      <div class="result-pet">${petHTML({ cat: ap.cat, wear: ap.wear, h: 150, mode: p.fresh ? (r.doneAt ? 'party' : 'hop') : 'idle', extraClass: 'pokeable' })}</div>
+      <div class="result-main">
+        <div class="kicker">错题巩固 · ${SEC_NAME[p.sec]} · ${md(r.date)}</div>
+        <h1 class="result-title">${good ? '巩固成功！' : '再接再厉'}<span>${SEC_NAME[p.sec]}错题</span></h1>
+        <div class="result-stats">
+          <div class="rs"><span>答对</span><b>${S.correct}/${S.total}</b><small>答对的题延后复习</small></div>
+          <div class="rs"><span>答错</span><b>${S.total - S.correct}</b><small>明天再做一次</small></div>
+          <div class="rs"><span>用时</span><b>${fmtClock(S.usedMs)}</b><small>限时 ${fmtClock(S.limitMs)}</small></div>
+        </div>
+        ${r.doneAt ? `<p class="sec-done">今天的错题巩固完成${r.coin ? `，奖励 <b class="coin-txt">+${r.coin}</b> 金币` : ''}。</p>` : ''}
+      </div>
+    </div>
+    <div class="sec-head"><h2>逐题回顾</h2><span class="muted">绿色的题下次复习时间已延后</span></div>
+    ${qgridHTML(S.qids, S.ans, S.result)}
+    <div class="result-btns">${nextButton(nx, p.sec)}<button class="btn ghost" data-go="home">回首页</button></div>
+  </section>`, 'home');
+  bindPetPoke($('.result'));
+  bindQgrid(S.qids, S.ans, `错题巩固 · ${md(r.date)}`, { name: 'reviewDone', params: { id: p.id, sec: p.sec } });
+  bindNext(nx);
+};
+
+VIEWS.extraDone = (p) => {
+  const e = Store.get('extras', p.id);
+  const ap = activePet();
+  mount(`<section class="card result">
+    <div class="result-top">
+      <div class="result-pet">${petHTML({ cat: ap.cat, wear: ap.wear, h: 150, mode: p.fresh ? 'hop' : 'idle', extraClass: 'pokeable' })}</div>
+      <div class="result-main">
+        <div class="kicker">额外练习 · 不计金币 · ${md(e.date)}</div>
+        <h1 class="result-title">练习完成<span>${esc(typeName(e.type))}</span></h1>
+        <div class="result-stats">
+          <div class="rs"><span>正确率</span><b>${pct(e.correct, e.total)}%</b><small>${e.correct}/${e.total}</small></div>
+          <div class="rs"><span>用时</span><b>${fmtClock(e.usedMs)}</b><small>每题 ${fmtSec(e.usedMs / e.total)}</small></div>
+          <div class="rs"><span>剩余可练</span><b>${extraPool(e.type).length}</b><small>本题型额外题</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="sec-head"><h2>逐题回顾</h2></div>
+    ${qgridHTML(e.qids, e.ans)}
+    <div class="result-btns"><button class="btn primary" data-go="extra">再练一组</button><button class="btn ghost" data-go="home">回首页</button></div>
+  </section>`, 'extra');
+  bindPetPoke($('.result'));
+  bindQgrid(e.qids, e.ans, `额外练习 · ${typeName(e.type)}`, { name: 'extraDone', params: { id: p.id } });
+};
+
+/* ============ 题目解析（逐题查看） ============ */
+VIEWS.qview = (p) => {
+  const item = p.list[p.idx], q = QB[item.qid];
+  if (!q) { toast('找不到这道题'); return go('home'); }
+  const a = item.a || {};
+  const answered = a.c != null && a.c !== '';
+  const ok = isCorrect(q, a);
+  const w = Store.get('wrong', q.id);
+  const note = (Store.get('notes', q.id) || {}).text || '';
+  const canEdit = ROLE === 'student' && Store.canWrite;
+  const isMath = q.sec === 'math';
+  const two = q.stim && q.stim.trim();
+  const opts = q.kind === 'mcq'
+    ? `<div class="bb-opts review">${q.opts.map((o, k) => {
+      const L = 'ABCD'[k];
+      const cls = L === q.ans ? 'right' : L === a.c ? 'wrongpick' : '';
+      return `<div class="opt-row ${cls} ${L === a.c ? 'sel' : ''}"><div class="opt"><span class="opt-l">${L}</span><span class="qhtml opt-t">${o}</span>${L === q.ans ? '<em class="tag ok">正确答案</em>' : L === a.c ? '<em class="tag bad">你的选择</em>' : ''}</div></div>`;
+    }).join('')}</div>`
+    : `<div class="spr-result"><div>你的答案：<b class="${ok ? 'ok' : 'bad'}">${answered ? esc(a.c) : '未作答'}</b></div><div>正确答案：<b class="ok">${esc(answerText(q))}</b></div></div>`;
+  const backP = p.back || { name: 'home', params: {} };
+  $('#app').innerHTML = `<div class="bb review-mode">
+    <header class="bb-top">
+      <div class="bb-title"><div class="bb-sec">${esc(p.title || '题目解析')}</div><div class="bb-sub"><span class="bb-chip">${esc(typeName(q.type))} · ${q.diff === 'H' ? 'Hard' : q.diff === 'M' ? 'Medium' : 'Easy'} · Question ID ${esc(q.id)}</span></div></div>
+      <div class="bb-verdict ${ok ? 'ok' : 'bad'}">${!answered ? '未作答' : ok ? '答对了' : '答错了'}${a.t ? `<small>用时 ${fmtSec(a.t)}</small>` : ''}</div>
+      <div class="bb-tools"><button class="bb-tool" id="qvBack">${ICON.exit}<span>返回</span></button></div>
+    </header>
+    <div class="bb-rule"></div>
+    <div class="bb-main ${two ? 'two' : 'one'} ${isMath ? 'math' : 'rw'}">
+      ${two ? `<section class="bb-pane bb-left"><div class="qhtml hl-zone" data-k="p">${q.stim}</div></section><div class="bb-divider"></div>` : ''}
+      <section class="bb-pane bb-right"><div class="bb-qwrap">
+        <div class="bb-qbar"><span class="bb-num">${p.idx + 1}</span><span class="bb-qtype">${esc(typeName(q.type))}</span></div>
+        <div class="qhtml bb-stem hl-zone" data-k="s">${q.stem}</div>
+        ${opts}
+        <div class="explain"><h4>解析 <span class="muted">（College Board 官方解析）</span></h4><div class="qhtml">${q.rat}</div></div>
+        <div class="note-box">
+          <h4>我的笔记</h4>
+          ${canEdit ? `<textarea id="qvNote" rows="3" placeholder="写下订正思路、易错点…">${esc(note)}</textarea><div class="nb-btns"><span class="muted" id="qvNoteSaved"></span><button class="btn small" id="qvNoteSave">保存笔记</button></div>` : `<p>${note ? esc(note) : '<span class="muted">没有笔记</span>'}</p>`}
+        </div>
+        ${canEdit ? `<div class="wb-row">${w ? `<span class="wb-in">已在错题本 · ${w.mastered ? '已掌握' : `下次复习 ${md(w.due)}`}</span><button class="lnk danger" id="qvWbDel">移出错题本</button>` : '<button class="btn small ghost" id="qvWbAdd">加入错题本</button>'}</div>` : ''}
+      </div></section>
+    </div>
+    <footer class="bb-foot">
+      <div class="bb-name">${p.idx + 1} / ${p.list.length}</div>
+      <div class="qv-dots">${p.list.map((it, k) => `<button class="qd ${isCorrect(QB[it.qid], it.a || {}) ? 'ok' : 'bad'} ${k === p.idx ? 'cur' : ''}" data-k="${k}" aria-label="第${k + 1}题"></button>`).join('')}</div>
+      <div class="bb-btns">${p.idx > 0 ? '<button class="bb-btn" id="qvPrev">Back</button>' : ''}${p.idx < p.list.length - 1 ? '<button class="bb-btn" id="qvNext">Next</button>' : '<button class="bb-btn" id="qvDone">完成</button>'}</div>
+    </footer>
+  </div>`;
+  fixMath($('.bb'));
+  $$('.hl-zone').forEach((z) => applyHL(z, (a.hl || []).filter((h) => h.k === z.dataset.k)));
+  const to = (k) => go('qview', { ...p, idx: k });
+  $('#qvBack').onclick = () => go(backP.name, backP.params);
+  const pv = $('#qvPrev'); if (pv) pv.onclick = () => to(p.idx - 1);
+  const nv = $('#qvNext'); if (nv) nv.onclick = () => to(p.idx + 1);
+  const dn = $('#qvDone'); if (dn) dn.onclick = () => go(backP.name, backP.params);
+  $$('.qd').forEach((b) => (b.onclick = () => to(+b.dataset.k)));
+  if (canEdit) {
+    $('#qvNoteSave').onclick = () => {
+      const txt = $('#qvNote').value.trim();
+      if (txt) Store.put('notes', q.id, { text: txt, updatedAt: Date.now() }); else Store.del('notes', q.id);
+      $('#qvNoteSaved').textContent = '已保存';
+    };
+    const add = $('#qvWbAdd'); if (add) add.onclick = () => { addWrongManual(q.id, a.c); toast('已加入错题本，明天开始复习'); go('qview', p); };
+    const del = $('#qvWbDel'); if (del) del.onclick = () => confirmBox('移出错题本？', '移出后这道题不再安排复习，笔记会保留。', '移出', () => { Store.del('wrong', q.id); go('qview', p); });
+  }
+};
+
+/* ============ 当天结算 ============ */
+function maybeSettle() {
+  if (ROLE !== 'student' || !Store.canWrite) return;
+  const T = todayStr(), s = todayStatus(T);
+  if (!s.hasTasks || !s.allDone) return;
+  const d = Store.get('days', T);
+  if (d && d.settledAt) return;
+  showSettlement(T);
+}
+function showSettlement(T) {
+  const runs = Store.all('runs').filter((r) => r.startedOn === T);
+  const rev = Store.get('reviews', T);
+  const before = coinsEarned(T);
+  const today = coinsOnDate(T);
+  const after = before + today;
+  const ap = activePet(after);
+  const rows = [];
+  for (const r of runs) {
+    const tag = runs.length > 1 ? `（${PLAN_LABEL(PLAN.find((x) => x.id === r.dayId))}）` : '';
+    const c = r.coins || {}, n = r.notes || {};
+    rows.push(['阅读速度奖' + tag, c.rwSpeed, n.rwSpeed, r.sections.rw.doneAt]);
+    rows.push(['阅读正确率奖' + tag, c.rwAcc, n.rwAcc, r.sections.rw.doneAt]);
+    rows.push(['数学速度奖' + tag, c.mathSpeed, n.mathSpeed, r.sections.math.doneAt]);
+    rows.push(['数学正确率奖' + tag, c.mathAcc, n.mathAcc, r.sections.math.doneAt]);
+    rows.push(['完成当天习题' + tag, c.done, r.doneAt ? '新题全部完成' : '还没做完', r.doneAt]);
+  }
+  rows.push(['完成错题巩固', rev ? rev.coin : 0, !rev || rev.empty ? '今天没有到期的错题' : rev.doneAt ? `答对 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}` : '还没做完', true]);
+  const newly = allUnlocks().filter((u) => u.at > before && u.at <= after);
+  const m = modal(`<div class="settle">
+    <div class="settle-pet">${petHTML({ cat: ap.cat, wear: ap.wear, h: 130, mode: 'party' })}</div>
+    <div class="kicker">${mdw(T)}</div>
+    <h2 class="settle-title">今日结算</h2>
+    <ul class="settle-rows">${rows.map(([k, v, note, ready]) => `<li class="${v ? 'got' : ''}"><span class="sr-k">${esc(k)}</span><span class="sr-note">${esc(ready ? note || '' : '还没完成')}</span><b>${v ? '+' + v : '0'}</b></li>`).join('')}</ul>
+    <div class="settle-total"><span>今日获得</span><b><i class="coin"></i>+${today}</b></div>
+    <div class="settle-sub">累计获得 ${after} 金币 · 可兑换 ${coinBalance()} 美元 · Lv ${levelOf(after)}</div>
+    ${newly.length ? `<div class="settle-new"><b>解锁新内容！</b>${newly.map((u) => `<span class="unl">${KIND_CN[u.kind]}：${esc(u.name)}</span>`).join('')}</div>` : ''}
+    <button class="btn primary big" id="settleOk">${dow(T) === 0 ? '查看本周周报' : '好耶'}</button>
+  </div>`, { cls: 'settle-modal' });
+  if (Store.canWrite && ROLE === 'student') Store.put('days', T, { date: T, settledAt: Date.now(), coins: today });
+  m.el.querySelector('#settleOk').onclick = () => {
+    m.close();
+    if (dow(T) === 0) showWeekly(weekStart(T));
+    else if (VIEW.name === 'home') go('home');
+  };
+}
+
+/* ============ 周报 ============ */
+function weekCardHTML(rep, opts = {}) {
+  const lvUp = rep.levelEnd > rep.levelStart;
+  const live = todayStr() <= rep.we;
+  return `<div class="week-card">
+    <div class="wk-head"><h3>${md(rep.ws)} – ${md(rep.we)}${live ? '<span class="live">进行中</span>' : ''}</h3><span class="muted">完成新题 ${rep.daysDone} 天 · 错题巩固 ${rep.reviewsDone} 天</span></div>
+    <div class="wk-grid">
+      <div><span>阅读总正确率</span><b>${rep.rwAcc[1] ? pct(rep.rwAcc[0], rep.rwAcc[1]) + '%' : '—'}</b><small>${rep.rwAcc[0]}/${rep.rwAcc[1]} 题</small></div>
+      <div><span>数学总正确率</span><b>${rep.mathAcc[1] ? pct(rep.mathAcc[0], rep.mathAcc[1]) + '%' : '—'}</b><small>${rep.mathAcc[0]}/${rep.mathAcc[1]} 题</small></div>
+      <div><span>阅读平均用时</span><b>${rep.rwAvg != null ? fmtClock(rep.rwAvg) : '—'}</b><small>每天整个阅读部分</small></div>
+      <div><span>数学平均用时</span><b>${rep.mathAvg != null ? fmtClock(rep.mathAvg) : '—'}</b><small>每天整个数学部分</small></div>
+      <div><span>本周金币</span><b class="coin-txt">+${rep.coins}</b><small>= ${rep.coins} 美元</small></div>
+      <div><span>错题巩固</span><b>${rep.revQ ? pct(rep.revC, rep.revQ) + '%' : '—'}</b><small>${rep.revC}/${rep.revQ} 题答对</small></div>
+    </div>
+    <div class="wk-pet">${opts.pet !== false ? petHTML({ cat: activePet(rep.after).cat, wear: activePet(rep.after).wear, h: 72, mode: lvUp ? 'party' : 'idle' }) : ''}
+      <div><b>萌宠升级：</b>${lvUp ? `Lv ${rep.levelStart} → <b>Lv ${rep.levelEnd}</b>` : `保持 Lv ${rep.levelEnd}`}
+        ${rep.unlocked.length ? `<br>本周解锁：${rep.unlocked.map((u) => `${KIND_CN[u.kind]}「${esc(u.name)}」`).join('、')}` : ''}
+        ${(() => { const nu = nextUnlock(rep.after); return nu ? `<br><span class="muted">离下一个解锁（${esc(nu.name)}）还差 ${nu.at - rep.after} 金币</span>` : ''; })()}</div>
+    </div>
+  </div>`;
+}
+function showWeekly(ws) {
+  const rep = weekReport(ws);
+  const m = modal(`<div class="weekly-modal"><div class="kicker">每周结算</div><h2 class="settle-title">本周周报</h2>${weekCardHTML(rep)}<button class="btn primary big" id="wkOk">下周继续加油</button></div>`, { cls: 'wide' });
+  if (Store.canWrite && ROLE === 'student') Store.put('weekly', ws, { ws, seenAt: Date.now(), coins: rep.coins, rwAcc: rep.rwAcc, mathAcc: rep.mathAcc, rwAvg: rep.rwAvg, mathAvg: rep.mathAvg, levelStart: rep.levelStart, levelEnd: rep.levelEnd });
+  m.el.querySelector('#wkOk').onclick = () => { m.close(); if (VIEW.name === 'home') go('home'); };
+}
+
+/* ============ 错题本 ============ */
+let WB = { sec: 'all', type: 'all', status: 'open', open: {} };
+function fromLabel(from) {
+  if (!from) return '';
+  if (from === 'manual') return '手动加入';
+  const [k, id] = from.split(':');
+  if (k === 'day') { const p = PLAN.find((x) => x.id === id); return p ? PLAN_LABEL(p) : '每日新题'; }
+  if (k === 'extra') return '额外练习';
+  return '';
+}
+function stageDots(w) {
+  return `<span class="dots" title="复习进度：${w.mastered ? '已掌握' : `第 ${w.stage + 1} 轮`}">${SRS.map((_, i) => `<i class="${w.mastered || i < w.stage ? 'on' : i === w.stage ? 'cur' : ''}"></i>`).join('')}</span>`;
+}
+function wrongList(readOnly) {
+  const T = todayStr();
+  let list = Store.all('wrong').filter((w) => QB[w.qid]);
+  if (WB.sec !== 'all') list = list.filter((w) => w.sec === WB.sec);
+  if (WB.type !== 'all') list = list.filter((w) => w.type === WB.type);
+  if (WB.status === 'open') list = list.filter((w) => !w.mastered);
+  if (WB.status === 'done') list = list.filter((w) => w.mastered);
+  list.sort((a, b) => (a.mastered - b.mastered) || (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+  return list.map((w) => {
+    const q = QB[w.qid];
+    const note = (Store.get('notes', w.qid) || {}).text || '';
+    const snippet = stripHtml(q.sec === 'rw' ? q.stem + ' ' + q.stim : q.stem).slice(0, 150);
+    const open = WB.open[w.qid];
+    const dueTxt = w.mastered ? `已掌握（${md(w.masteredOn || w.due)}）` : w.due <= T ? (w.addedOn < T ? '今天到期' : '明天开始复习') : `下次复习 ${md(w.due)}`;
+    return `<li class="wb-item ${w.mastered ? 'mastered' : ''}">
+      <div class="wb-top">
+        <span class="badge ${q.sec}">${esc(typeShort(q.type))}</span>
+        <span class="wb-meta">${esc(fromLabel(w.from))} · ${md(w.addedOn)} 收录${w.times > 1 ? ` · 错过 ${w.times} 次` : ''}</span>
+        <span class="wb-due ${!w.mastered && w.due <= T && w.addedOn < T ? 'hot' : ''}">${dueTxt} ${stageDots(w)}</span>
+      </div>
+      <p class="wb-snip">${esc(snippet)}${snippet.length >= 150 ? '…' : ''}</p>
+      <div class="wb-actions">
+        <button class="lnk wb-note-t" data-q="${w.qid}">${open ? '收起订正笔记' : note ? '显示订正笔记' : '添加订正笔记'}</button>
+        <button class="lnk wb-view" data-q="${w.qid}">查看题目与解析</button>
+        ${!readOnly ? `<button class="lnk danger wb-rm" data-q="${w.qid}">移出</button>` : ''}
+      </div>
+      ${open ? `<div class="wb-note">${readOnly ? `<p>${note ? esc(note) : '<span class="muted">没有笔记</span>'}</p>` : `<textarea rows="3" data-q="${w.qid}" placeholder="错因、正确思路、下次注意…">${esc(note)}</textarea><button class="btn small wb-note-save" data-q="${w.qid}">保存</button>`}</div>` : ''}
+    </li>`;
+  }).join('') || '<li class="empty">这里还没有错题。做完关卡后答错的题会自动收进来。</li>';
+}
+function wbFilters() {
+  const types = [...new Set(Store.all('wrong').map((w) => w.type))];
+  const chip = (k, v, label) => `<button class="chip ${WB[k] === v ? 'on' : ''}" data-k="${k}" data-v="${v}">${label}</button>`;
+  return `<div class="filters">
+    <div class="chips">${chip('sec', 'all', '全部')}${chip('sec', 'rw', '阅读')}${chip('sec', 'math', '数学')}</div>
+    <div class="chips">${chip('status', 'open', '待复习')}${chip('status', 'done', '已掌握')}${chip('status', 'all', '全部状态')}</div>
+    <select id="wbType" aria-label="题型"><option value="all">全部题型</option>${types.map((t) => `<option value="${t}" ${WB.type === t ? 'selected' : ''}>${esc(typeName(t))}</option>`).join('')}</select>
+  </div>`;
+}
+function bindWrongList(readOnly, rerender) {
+  $$('.filters .chip').forEach((b) => (b.onclick = () => { WB[b.dataset.k] = b.dataset.v; rerender(); }));
+  const sel = $('#wbType'); if (sel) sel.onchange = () => { WB.type = sel.value; rerender(); };
+  $$('.wb-note-t').forEach((b) => (b.onclick = () => { WB.open[b.dataset.q] = !WB.open[b.dataset.q]; rerender(); }));
+  $$('.wb-view').forEach((b) => (b.onclick = () => {
+    const w = Store.get('wrong', b.dataset.q);
+    const items = [...$$('.wb-view')].map((x) => ({ qid: x.dataset.q, a: { c: (Store.get('wrong', x.dataset.q) || {}).lastAns } }));
+    go('qview', { list: items, idx: items.findIndex((x) => x.qid === w.qid), title: '错题本', back: { name: VIEW.name, params: {} } });
+  }));
+  $$('.wb-rm').forEach((b) => (b.onclick = () => confirmBox('移出错题本？', '移出后不再安排复习，笔记会保留。', '移出', () => { Store.del('wrong', b.dataset.q); rerender(); })));
+  $$('.wb-note-save').forEach((b) => (b.onclick = () => {
+    const txt = $(`textarea[data-q="${b.dataset.q}"]`).value.trim();
+    if (txt) Store.put('notes', b.dataset.q, { text: txt, updatedAt: Date.now() }); else Store.del('notes', b.dataset.q);
+    toast('笔记已保存');
+  }));
+}
+VIEWS.wrong = () => {
+  const T = todayStr();
+  const all = Store.all('wrong').filter((w) => QB[w.qid]);
+  const open = all.filter((w) => !w.mastered);
+  const due = dueWrong(T).length;
+  mount(`<section class="card">
+    <div class="sec-head"><h1>错题本</h1><span class="muted">答错自动收录；在解析页也能手动加入</span></div>
+    <div class="mini-stats"><div><b>${open.length}</b><span>待复习</span></div><div><b>${due}</b><span>今天到期</span></div><div><b>${all.length - open.length}</b><span>已掌握</span></div>
+      <div><b>${SRS.join(' · ')}</b><span>复习间隔（天）</span></div></div>
+    ${wbFilters()}
+    <ul class="wb-list">${wrongList(false)}</ul>
+  </section>`, 'wrong');
+  bindWrongList(false, VIEWS.wrong);
+};
+
+/* ============ 练习记录 ============ */
+VIEWS.records = () => {
+  const runs = Store.all('runs').sort((a, b) => (a.startedOn < b.startedOn ? 1 : -1));
+  const revs = Store.all('reviews').filter((r) => !r.empty).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const exs = Store.all('extras').filter((e) => e.status === 'done').sort((a, b) => b.createdAt - a.createdAt);
+  const runHTML = runs.map((r) => {
+    const p = PLAN.find((x) => x.id === r.dayId);
+    const rows = dayStages(r).map((x) => `<tr class="${x.st.status === 'done' ? 'clickable' : ''}" data-run="${r.dayId}" data-sec="${x.sec}" data-idx="${x.idx}">
+      <td><span class="badge ${x.sec}">${SEC_NAME[x.sec]}</span> ${esc(typeName(x.st.type))}</td>
+      <td>${x.st.status === 'done' ? `${x.st.correct}/${x.st.total}（${pct(x.st.correct, x.st.total)}%）` : x.st.status === 'active' ? '进行中' : '未开始'}</td>
+      <td>${x.st.status === 'done' ? fmtClock(x.st.timeMs) : '—'}</td>
+      <td>${x.st.hist ? Math.round(x.st.hist.acc * 100) + '%' : '—'}</td></tr>`).join('');
+    return `<div class="rec">
+      <div class="rec-head"><b>${mdw(r.startedOn)}</b><span>${esc(p ? PLAN_LABEL(p) : r.dayId)}${r.makeup ? ' · 补做' : ''}${r.early ? ' · 提前' : ''}</span>
+        <span class="rec-coin"><i class="coin sm"></i>+${runCoins(r)}</span>${r.doneAt ? '<span class="ok-tag">完成</span>' : ''}</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>关卡</th><th>正确</th><th>用时</th><th>往期平均</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="rec-foot muted">阅读部分 ${r.sections.rw.doneAt ? fmtDur(r.sections.rw.usedMs) : '未完成'} · 数学部分 ${r.sections.math.doneAt ? fmtDur(r.sections.math.usedMs) : '未完成'}</div>
+    </div>`;
+  }).join('') || '<p class="empty">还没有练习记录。</p>';
+  const revHTML = revs.map((r) => `<li><b>${mdw(r.date)}</b>
+      ${['rw', 'math'].map((sec) => { const S = r.sections[sec]; return S.qids.length ? `<button class="lnk rv-open" data-d="${r.date}" data-sec="${sec}">${SEC_NAME[sec]} ${S.status === 'done' ? `${S.correct}/${S.total}` : '未完成'}</button>` : ''; }).join(' · ')}
+      ${r.coin ? `<span class="rec-coin"><i class="coin sm"></i>+${r.coin}</span>` : ''}</li>`).join('') || '<li class="empty">还没有错题巩固记录。</li>';
+  const exHTML = exs.map((e) => `<li><b>${mdw(e.date)}</b> ${esc(typeName(e.type))} <button class="lnk ex-open" data-id="${e.id}">${e.correct}/${e.total}</button> <span class="muted">${fmtClock(e.usedMs)}</span></li>`).join('') || '<li class="empty">还没有额外练习。</li>';
+  mount(`<section class="card"><div class="sec-head"><h1>练习记录</h1><span class="muted">点关卡查看每道题</span></div>${runHTML}</section>
+    <div class="two-col">
+      <section class="card"><div class="sec-head"><h2>错题巩固</h2></div><ul class="simple-list">${revHTML}</ul></section>
+      <section class="card"><div class="sec-head"><h2>额外练习</h2></div><ul class="simple-list">${exHTML}</ul></section>
+    </div>`, 'records');
+  $$('tr.clickable').forEach((tr) => (tr.onclick = () => {
+    const r = runOf(tr.dataset.run), st = r.sections[tr.dataset.sec].stages[+tr.dataset.idx];
+    go('qview', { list: st.qids.map((id) => ({ qid: id, a: st.ans[id] })), idx: 0, title: `${typeName(st.type)} · ${md(r.startedOn)}`, back: { name: 'records', params: {} } });
+  }));
+  $$('.rv-open').forEach((b) => (b.onclick = () => {
+    const S = Store.get('reviews', b.dataset.d).sections[b.dataset.sec];
+    go('qview', { list: S.qids.map((id) => ({ qid: id, a: S.ans[id] })), idx: 0, title: `错题巩固 · ${md(b.dataset.d)}`, back: { name: 'records', params: {} } });
+  }));
+  $$('.ex-open').forEach((b) => (b.onclick = () => go('extraDone', { id: b.dataset.id })));
+};
+
+/* ============ 额外练习 ============ */
+let EXN = 10;
+VIEWS.extra = () => {
+  const T = todayStr(), s = todayStatus(T);
+  const unlocked = s.allDone;
+  const active = Store.all('extras').find((e) => e.status === 'active');
+  const cards = extraTypes().map((t) => {
+    const left = extraPool(t).length;
+    const per = EXTRA_PER_Q[t] || 90000;
+    return `<div class="ex-card ${left ? '' : 'off'}">
+      <span class="badge ${typeSec(t)}">${SEC_NAME[typeSec(t)]}</span>
+      <h3>${esc(typeName(t))}</h3>
+      <p class="muted">剩余 ${left} 题 · 每题 ${per / 1000} 秒</p>
+      <button class="btn small ex-go" data-t="${t}" ${!unlocked || !left || active ? 'disabled' : ''}>练 ${Math.min(EXN, left)} 题 · ${fmtClock(Math.min(EXN, left) * per)}</button>
+    </div>`;
+  }).join('');
+  mount(`<section class="card">
+    <div class="sec-head"><h1>额外练习</h1><span class="muted">每天任务完成后开放 · 不计金币 · 错题照样进错题本</span></div>
+    ${!unlocked ? `<div class="notice">先完成今天的${s.p && !s.planDone ? '新题关卡' : ''}${!s.revDone ? (s.p && !s.planDone ? '和' : '') + '错题巩固' : ''}，额外练习就会解锁。</div>` : ''}
+    ${active ? `<div class="notice">有一组额外练习还没做完（${esc(typeName(active.type))}，剩余 ${fmtClock(timerLeft(active))}）。<button class="btn small" id="exResume">继续</button></div>` : ''}
+    <div class="ex-count">每组题数：${[5, 10, 15, 20].map((n) => `<button class="chip ${EXN === n ? 'on' : ''}" data-n="${n}">${n}</button>`).join('')}</div>
+    <div class="ex-grid">${cards}</div>
+  </section>`, 'extra');
+  $$('.ex-count .chip').forEach((b) => (b.onclick = () => { EXN = +b.dataset.n; VIEWS.extra(); }));
+  $$('.ex-go').forEach((b) => (b.onclick = () => {
+    const e = newExtra(b.dataset.t, EXN);
+    VIEW = { name: 'practice', params: {} };
+    startSession({ kind: 'extra', id: e.id });
+  }));
+  const rs = $('#exResume');
+  if (rs) rs.onclick = () => { VIEW = { name: 'practice', params: {} }; startSession({ kind: 'extra', id: active.id }); };
+};
+
+/* ============ 萌宠小窝 ============ */
+VIEWS.pet = () => {
+  const coins = coinsEarned();
+  const ps = petState();
+  const ap = activePet(coins);
+  const card = (u, kind) => {
+    const ok = coins >= u.at;
+    const using = kind === 'pet' ? ap.cat === u.id : kind === 'wear' ? ap.wear === u.id : !ap.hideDeco.includes(u.id);
+    const img = kind === 'pet' ? `img/cat_${u.id}.png` : kind === 'wear' ? `img/acc_${u.id}.png` : `img/deco_${u.id}.png`;
+    const btn = !ok ? `<span class="lock">累计 ${u.at} 金币解锁</span>`
+      : kind === 'pet' ? (using ? '<span class="using">陪伴中</span>' : `<button class="btn small pk" data-kind="pet" data-id="${u.id}">换它陪我</button>`)
+        : kind === 'wear' ? `<button class="btn small pk" data-kind="wear" data-id="${u.id}">${using ? '摘下' : '戴上'}</button>`
+          : `<button class="btn small pk" data-kind="deco" data-id="${u.id}">${using ? '收起' : '摆出来'}</button>`;
+    return `<div class="pk-card ${ok ? '' : 'locked'} ${using && ok ? 'using' : ''}"><div class="pk-img"><img alt="" src="${img}"></div><b>${esc(u.name)}</b>${u.desc ? `<small class="muted">${esc(u.desc)}</small>` : ''}${btn}</div>`;
+  };
+  const items = allUnlocks();
+  const ladder = items.map((u) => `<li class="${coins >= u.at ? 'got' : ''}"><span class="ld-at"><i class="coin sm"></i>${u.at}</span><span>${KIND_CN[u.kind]} · ${esc(u.name)}</span>${coins >= u.at ? '<em>已解锁</em>' : `<em class="muted">还差 ${u.at - coins}</em>`}</li>`).join('');
+  const L = levelRange(coins);
+  mount(`<section class="card pet-hero">
+      <div class="sec-head"><h1>萌宠小窝</h1><span class="muted">按累计获得的金币解锁，兑换美元后不会失去</span></div>
+      ${roomHTML({ coins, id: 'petRoom' })}
+      <div class="pet-bar">
+        <div><b>${esc(petName(ap.cat))}</b> · Lv ${L.l}<div class="pxbar thin"><i style="width:${L.to ? pct(coins - L.from, L.to - L.from) : 100}%"></i></div><small class="muted">${L.to ? `再得 ${L.to - coins} 金币升到 Lv ${L.l + 1}` : '已满级'}</small></div>
+        <div class="anim-btns"><span class="muted">看看动作：</span><button class="chip" data-anim="hop">答对跳跃</button><button class="chip" data-anim="party">通关庆祝</button></div>
+      </div>
+    </section>
+    <section class="card"><div class="sec-head"><h2>猫咪</h2></div><div class="pk-grid">${PETS.map((u) => card({ ...u, at: unlockAt(u) }, 'pet')).join('')}</div></section>
+    <section class="card"><div class="sec-head"><h2>配饰</h2><span class="muted">每只猫都能戴</span></div><div class="pk-grid">${WEARS.map((u) => card({ ...u, at: unlockAt(u) }, 'wear')).join('')}</div></section>
+    <section class="card"><div class="sec-head"><h2>小窝装饰</h2></div><div class="pk-grid">${DECOS.map((u) => card({ ...u, at: unlockAt(u) }, 'deco')).join('')}</div></section>
+    <div class="two-col">
+      <section class="card"><div class="sec-head"><h2>解锁路线</h2><span class="muted">累计 ${coins} 金币</span></div><ol class="ladder">${ladder}</ol></section>
+      ${redeemHTML(true)}
+    </div>`, 'pet');
+  bindPetPoke($('#petRoom'));
+  $$('.anim-btns .chip').forEach((b) => (b.onclick = () => playPet($('#petRoom .pet'), b.dataset.anim)));
+  $$('.pk').forEach((b) => (b.onclick = () => {
+    const s = petState();
+    if (b.dataset.kind === 'pet') s.cat = b.dataset.id;
+    if (b.dataset.kind === 'wear') s.wear = s.wear === b.dataset.id ? null : b.dataset.id;
+    if (b.dataset.kind === 'deco') { s.hideDeco = s.hideDeco || []; s.hideDeco = s.hideDeco.includes(b.dataset.id) ? s.hideDeco.filter((x) => x !== b.dataset.id) : s.hideDeco.concat(b.dataset.id); }
+    Store.put('meta', 'pet', s);
+    VIEWS.pet();
+    playPet($('#petRoom .pet'), 'hop');
+  }));
+  bindRedeem(VIEWS.pet);
+};
+
+/* ============ 金币兑换 ============ */
+function redeemHTML(student) {
+  const L = ledger();
+  const bal = coinBalance(), pend = coinsPending();
+  const canConfirm = Store.canWrite;
+  const items = L.items.slice().reverse().map((i) => `<li><span>${mdw(laDate(new Date(i.at)))}</span><b>${i.coins} 金币 = $${i.coins}</b>
+    ${i.status === 'done' ? `<em class="ok-tag">已兑换 ${i.doneAt ? md(laDate(new Date(i.doneAt))) : ''}</em>` : canConfirm && !student ? `<button class="btn small rd-ok" data-id="${i.id}">确认已给</button>` : '<em class="muted">等爸爸确认</em>'}
+    ${i.status === 'pending' && student && Store.canWrite ? `<button class="lnk danger rd-cancel" data-id="${i.id}">撤回</button>` : ''}</li>`).join('');
+  return `<section class="card redeem">
+    <div class="sec-head"><h2>金币兑换</h2><span class="muted">1 金币 = 1 美元</span></div>
+    <div class="mini-stats"><div><b>${coinsEarned()}</b><span>累计获得</span></div><div><b>${coinsRedeemed()}</b><span>已兑换</span></div><div><b class="coin-txt">${bal}</b><span>可兑换</span></div></div>
+    ${student && Store.canWrite ? `<form class="rd-form" id="rdForm"><label for="rdN">申请兑换</label><input id="rdN" type="number" min="1" max="${Math.max(0, bal - pend)}" placeholder="金币数"><button class="btn small" type="submit" ${bal - pend <= 0 ? 'disabled' : ''}>提交给爸爸</button></form>` : ''}
+    <ul class="simple-list rd-list">${items || '<li class="empty">还没有兑换记录。</li>'}</ul>
+  </section>`;
+}
+function bindRedeem(rerender) {
+  const f = $('#rdForm');
+  if (f) f.onsubmit = (e) => {
+    e.preventDefault();
+    const n = Math.floor(+$('#rdN').value);
+    const max = coinBalance() - coinsPending();
+    if (!n || n < 1 || n > max) { toast(`可以申请 1 到 ${max} 金币`, 'warn'); return; }
+    const L = clone(ledger());
+    L.items.push({ id: uid(), coins: n, at: Date.now(), status: 'pending' });
+    Store.put('meta', 'ledger', L);
+    toast('已提交，等爸爸确认');
+    rerender();
+  };
+  $$('.rd-ok').forEach((b) => (b.onclick = () => {
+    const L = clone(ledger());
+    const it = L.items.find((x) => x.id === b.dataset.id);
+    if (it) { it.status = 'done'; it.doneAt = Date.now(); }
+    Store.put('meta', 'ledger', L);
+    toast('已确认兑换');
+    rerender();
+  }));
+  $$('.rd-cancel').forEach((b) => (b.onclick = () => {
+    const L = clone(ledger());
+    L.items = L.items.filter((x) => x.id !== b.dataset.id);
+    Store.put('meta', 'ledger', L);
+    rerender();
+  }));
+}
+
+/* ============ 周报页 ============ */
+function allWeekStarts() {
+  const set = new Set([weekStart(todayStr())]);
+  Store.all('runs').forEach((r) => set.add(weekStart(r.startedOn)));
+  Store.all('reviews').forEach((r) => set.add(weekStart(r.date)));
+  return [...set].filter((w) => w >= weekStart(START)).sort().reverse();
+}
+VIEWS.weekly = () => {
+  const weeks = allWeekStarts();
+  mount(`<section class="card"><div class="sec-head"><h1>周报</h1><span class="muted">每周日做完任务后自动结算</span></div>
+    ${weeks.map((ws) => weekCardHTML(weekReport(ws))).join('')}</section>`, 'weekly');
+};
+
+/* ============ 家长视图 ============ */
+VIEWS.parent = () => {
+  const T = todayStr();
+  const ws = weekStart(T);
+  const days = [];
+  for (let i = 0; i < 7; i++) days.push(addDays(ws, i));
+  const rows = days.map((d) => {
+    const runs = Store.all('runs').filter((r) => r.startedOn === d);
+    const rev = Store.get('reviews', d);
+    const r = runs[0];
+    const secTxt = (sec) => { if (!r) return '—'; const S = r.sections[sec]; const c = sum(S.stages.filter((x) => x.status === 'done'), (x) => x.correct), n = sum(S.stages.filter((x) => x.status === 'done'), (x) => x.total); return n ? `${pct(c, n)}%（${c}/${n}）${S.doneAt ? ' · ' + fmtClock(S.usedMs) : ''}` : '未开始'; };
+    const plan = planOfDate(d);
+    return `<tr class="${d === T ? 'today' : ''}"><td>${mdw(d)}</td>
+      <td>${r ? (r.doneAt ? '<span class="ok-tag">完成</span>' : '进行中') : plan ? (d < T ? '<span class="bad-tag">未做</span>' : '待做') : '—'}</td>
+      <td>${secTxt('rw')}</td><td>${secTxt('math')}</td>
+      <td>${rev && !rev.empty ? (rev.doneAt ? `完成 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}` : '未完成') : '—'}</td>
+      <td>${coinsOnDate(d) || '—'}</td></tr>`;
+  }).join('');
+  const past = allWeekStarts().filter((w) => w !== ws);
+  mount(`${ROLE === 'student' ? '<div class="notice">这是家长看到的页面（预览）。</div>' : ''}
+    <section class="card"><div class="sec-head"><h1>家长视图</h1><button class="btn small ghost" id="refresh">刷新数据</button></div>
+      ${weekCardHTML(weekReport(ws))}
+    </section>
+    <section class="card"><div class="sec-head"><h2>本周每日答题情况</h2><span class="muted">美西时间</span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>新题</th><th>阅读 正确率 · 用时</th><th>数学 正确率 · 用时</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows}</tbody></table></div>
+    </section>
+    ${redeemHTML(false)}
+    ${past.length ? `<section class="card"><div class="sec-head"><h2>往期周报</h2></div>${past.map((w) => weekCardHTML(weekReport(w), { pet: false })).join('')}</section>` : ''}`, 'parent');
+  bindRefresh();
+  bindRedeem(VIEWS.parent);
+};
+
+/* ============ 老师视图 ============ */
+VIEWS.teacher = () => {
+  const st = typeStats();
+  const order = Object.keys(TYPE_NAME);
+  const rows = Object.values(st).sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type)).map((x) => {
+    const last = x.sessions.slice(-3).map((s) => `<span class="spark-v" title="${md(s.d)}">${Math.round(s.acc * 100)}</span>`).join('');
+    return `<tr><td><span class="badge ${typeSec(x.type)}">${SEC_NAME[typeSec(x.type)]}</span> ${esc(typeName(x.type))}</td>
+      <td>${x.q || '—'}</td><td>${x.q ? pct(x.c, x.q) + '%' : '—'}</td><td>${x.q ? fmtSec(x.ms / x.q) : '—'}</td>
+      <td class="spark-cell">${last || '—'}</td>
+      <td>${x.xq ? `${pct(x.xc, x.xq)}%（${x.xq}）` : '—'}</td>
+      <td>${x.rq ? `${pct(x.rc, x.rq)}%（${x.rq}）` : '—'}</td>
+      <td>${(x.wOpen || 0)} / ${(x.wDone || 0)}</td></tr>`;
+  }).join('') || '<tr><td colspan="8" class="empty">还没有做题数据。</td></tr>';
+  const render = () => {
+    mount(`${ROLE === 'student' ? '<div class="notice">这是老师看到的页面（预览）。</div>' : ''}
+      <section class="card"><div class="sec-head"><h1>老师视图</h1><button class="btn small ghost" id="refresh">刷新数据</button></div>
+        <p class="muted">每日新题按题型统计；“最近 3 次”是最近三次该题型关卡的正确率（%）。难度均为 Hard（题库不足时会用 Medium 补充，题目页有标注）。</p>
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>题型</th><th>新题数</th><th>正确率</th><th>平均每题</th><th>最近 3 次</th><th>额外练习</th><th>错题巩固</th><th>错题 待复习/已掌握</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </section>
+      <section class="card"><div class="sec-head"><h2>错题详情</h2><span class="muted">点「查看题目与解析」看原题、学生答案和笔记</span></div>
+        ${wbFilters()}<ul class="wb-list">${wrongList(true)}</ul></section>`, 'teacher');
+    bindRefresh();
+    bindWrongList(true, render);
+  };
+  render();
+};
+function bindRefresh() {
+  const b = $('#refresh');
+  if (b) b.onclick = async () => { b.disabled = true; await Store.loadAll(COLLECTIONS); go(VIEW.name, VIEW.params); toast('已刷新'); };
+}
+
+/* ============ 设置 ============ */
+VIEWS.settings = () => {
+  const s = settings();
+  const items = allUnlocks();
+  mount(`<section class="card settings">
+    <div class="sec-head"><h1>设置</h1></div>
+    <form id="setForm" class="set-form">
+      <label>答题页显示的名字<input id="setName" value="${esc(s.name || '')}" placeholder="例如 Ricky"></label>
+      <label>每天错题巩固上限（每部分，0 = 全部做完）<input id="setCap" type="number" min="0" value="${+s.reviewCap || 0}"></label>
+      <h3>解锁门槛（累计金币）</h3>
+      <div class="set-unlocks">${items.map((u) => `<label><span>${KIND_CN[u.kind]} · ${esc(u.name)}</span><input type="number" min="0" data-id="${u.id}" value="${u.at}"></label>`).join('')}</div>
+      <button class="btn primary" type="submit">保存设置</button>
+    </form>
+    <div class="notice">数据保存位置：${Store.mode === 'cloud' ? 'Supabase 云端（任何设备登录都能接着做；家长和老师看到的是同一份数据）' : '这个浏览器本机（调试模式）'}。</div>
+  </section>`, 'settings');
+  $('#setForm').onsubmit = (e) => {
+    e.preventDefault();
+    const n = clone(settings());
+    n.name = $('#setName').value.trim();
+    n.reviewCap = Math.max(0, Math.floor(+$('#setCap').value || 0));
+    n.unlocks = {};
+    $$('.set-unlocks input').forEach((i) => (n.unlocks[i.dataset.id] = Math.max(0, Math.floor(+i.value || 0))));
+    saveSettings(n);
+    toast('设置已保存');
+    VIEWS.settings();
+  };
+};
+
+/* ============ 启动 ============ */
+const COLLECTIONS = ['runs', 'reviews', 'wrong', 'notes', 'extras', 'days', 'weekly', 'meta'];
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-go]');
+  if (b && !b.disabled) { e.preventDefault(); go(b.dataset.go); }
+});
+window.addEventListener('pagehide', () => { if (PR) { trackTime(); PR.sess.save(true); } Store.flush(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { if (PR) { trackTime(); PR.sess.save(true); } Store.flush(); }
+  else if (ROLE === 'student' && !PR && checkTimers()) go(VIEW.name, VIEW.params);
+});
+// 过了午夜（美西时间）自动刷新首页
+let LAST_DAY = null;
+setInterval(() => {
+  if (ROLE !== 'student') return;
+  if (PR) return;
+  const changed = checkTimers();
+  const T = todayStr();
+  if ((changed || (LAST_DAY && T !== LAST_DAY)) && VIEW.name === 'home' && !$('.modal-back')) go('home');
+  LAST_DAY = T;
+}, 15000);
+
+async function boot() {
+  $('#app').innerHTML = '<div class="boot"><div class="boot-cat"></div><p>正在铺好今天的关卡…</p></div>';
+  let st;
+  try { st = await Store.init(); } catch (e) { bootError(e); return; }
+  if (st === 'login') return showLogin();
+  if (st === 'norole') return showNoRole();
+  startApp();
+}
+function bootError(e) {
+  $('#app').innerHTML = `<div class="boot"><p>没能加载：${esc(e.message || e)}。刷新页面再试一次。</p></div>`;
+}
+function showLogin(msg) {
+  $('#app').innerHTML = `<div class="login-wrap"><form class="card login" id="loginForm">
+    <div class="login-cat">${petHTML({ cat: 'orange', h: 110, mode: 'idle' })}</div>
+    <h1>喵喵 SAT 通关</h1>
+    <p class="muted">学生、家长、老师都从这里登录，系统会自动打开对应的页面。</p>
+    <label for="lgEmail">邮箱</label><input id="lgEmail" type="email" autocomplete="username" required>
+    <label for="lgPass">密码</label><input id="lgPass" type="password" autocomplete="current-password" required>
+    ${msg ? `<p class="login-err">${esc(msg)}</p>` : ''}
+    <button class="btn primary big" type="submit" id="lgBtn">登录</button>
+    <p class="muted small-note">账号由家里统一创建，忘记密码请找管理账号的人在 Supabase 后台重置。</p>
+  </form></div>`;
+  $('#loginForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const b = $('#lgBtn');
+    b.disabled = true; b.textContent = '登录中…';
+    try {
+      const st = await Store.login($('#lgEmail').value.trim(), $('#lgPass').value);
+      if (st === 'norole') return showNoRole();
+      startApp();
+    } catch (err) {
+      showLogin(/invalid/i.test(err.message || '') ? '邮箱或密码不对，再试一次。' : '登录失败：' + (err.message || err));
+    }
+  };
+}
+function showNoRole() {
+  $('#app').innerHTML = `<div class="boot"><div><p>这个账号（${esc(Store.email)}）还没有分配身份（学生 / 家长 / 老师）。</p>
+    <p class="muted">请管理账号的人在 Supabase 的 profiles 表里加上这个账号。</p><button class="btn" id="lgOut">换个账号登录</button></div></div>`;
+  $('#lgOut').onclick = () => Store.logout();
+}
+async function startApp() {
+  $('#app').innerHTML = '<div class="boot"><div class="boot-cat"></div><p>正在铺好今天的关卡…</p></div>';
+  try {
+    await loadQuestions();
+    await Store.loadAll(COLLECTIONS);
+  } catch (e) { bootError(e); return; }
+  ROLE = Store.role === 'student' ? 'student' : Store.role;
+  const hash = (location.hash || '').replace('#', '');
+  LAST_DAY = todayStr();
+  if (ROLE === 'student') {
+    checkTimers();
+    const resume = findActiveSession();
+    if (resume) { VIEW = { name: 'practice', params: {} }; startSession(resume); toast('已回到上次的作答，倒计时一直在走'); return; }
+    if (hash === 'parent' || hash === 'teacher') { go(hash); return; }
+    go('home');
+  } else go(ROLE);
+}
+function findActiveSession() {
+  for (const r of Store.all('runs')) for (const sec of ['rw', 'math']) {
+    const S = r.sections[sec];
+    const idx = S.stages.findIndex((x) => x.status === 'active');
+    if (idx >= 0 && S.runningSince) return { kind: 'run', id: r.dayId, sec, idx };
+  }
+  for (const rv of Store.all('reviews')) for (const sec of ['rw', 'math']) if (rv.sections[sec].status === 'active' && rv.sections[sec].runningSince) return { kind: 'review', id: rv.date, sec };
+  const e = Store.all('extras').find((x) => x.status === 'active' && x.runningSince);
+  return e ? { kind: 'extra', id: e.id } : null;
+}
+boot();
+
+</script>
+</body>
+</html>
