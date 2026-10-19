@@ -20,7 +20,8 @@ Bluebook 风格答题、错题本（艾宾浩斯 1/3/7/14/30 天）、金币奖�
 
 1. 新建 `plans/weekN.json`，格式照抄 `plans/week1.json`：
    - `days[].id` 用 `wNdX`；`dates` 是这一关可以做的日期（周末二选一就写两个日期）。
-   - 阅读每天 15 题指定题型 + 8 道 `wic`（词汇题）；数学每天 20 题；默认 Hard。
+   - 阅读按学生给的题型和题数排（第 2 周起每天两种题型 8 + 5 题），每天另加 8 道 `wic`（词汇题）；数学每天 20 题（四个类型「前两个」= Algebra + Advanced Math，「后两个」= PSDA + Geometry & Trig）。
+   - **难度（从第 3 周起）**：计划里写 `"rwHard": 2`，阅读的每个题型每关只放 2 道 Hard、其余用 Medium（词汇题也一样）；数学仍然全部 Hard。某一关想单独指定，可以在那一关写 `"hard": 数量`。
    - `extra`：每个出现过的题型 20 题，供额外练习。
    - 默认安排：周一到周四 + 周末一天做新题，周五和另一个周末日只做错题巩固（不用写进计划，系统自动安排）。
 2. 抓题（College Board 题库接口是公开的，不需要登录）：
@@ -30,8 +31,15 @@ Bluebook 风格答题、错题本（艾宾浩斯 1/3/7/14/30 天）、金币奖�
    ```
    只需要列出这周用到的技能代码（对照表见 README.md）。
 3. 选题：`python3 -I tools/build_week.py plans/weekN.json`。它会跳过以前用过的题，Hard 不够时用 Medium 补，并打印各题型用了多少 Hard、题库还剩多少。**Hard 不够时要告诉学生。**
+   题目缓存在本机 `~/Library/Caches/sat-platform/`（不要放进 iCloud 项目文件夹，iCloud 会把上千个小文件移到云端，读起来极慢）。
 4. 上传：`python3 tools/upload_week.py N`（需要项目文件夹里的 `.env`，里面有 SUPABASE_URL 和 SUPABASE_SERVICE_KEY；这个文件由学生自己保管，不要提交、不要打印内容）。
 5. 网页代码没改就不用重新部署；改了 `src/` 就运行 `python3 tools/build_app.py`，然后 `git add -A && git commit && git push`。
+
+## 学生在别处做错的题加进错题本
+
+- 先在题库里按题干关键词找到原题（College Board 的题号是 8 位十六进制，比如 `2ec0e43e`；别的网站常把选项顺序打乱，要按选项内容对应字母）。
+- `python3 tools/add_wrong.py 题号:学生选的字母 ...`，次日开始复习。
+- 题库里找不到的题（通常是 Bluebook 模考题，官方不公布单题难度）：照截图录成 `app/data/custom/日期.json`（格式见已有文件，id 用 `ext-` 开头，图表可以裁图后用 data URI 内嵌），再加 `--custom 文件路径`。这些文件含题目原文，只放在 app/data/ 下，不进公开仓库。
 
 ## 规则（改代码前先读）
 

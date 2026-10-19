@@ -28,6 +28,7 @@ function wrongList(readOnly) {
     return `<li class="wb-item ${w.mastered ? 'mastered' : ''}">
       <div class="wb-top">
         <span class="badge ${q.sec}">${esc(typeShort(q.type))}</span>
+        <span class="diff-tag ${q.diff || 'x'}">${q.diff === 'H' ? 'Hard' : q.diff === 'M' ? 'Medium' : q.diff === 'E' ? 'Easy' : '难度未知'}</span>
         <span class="wb-meta">${esc(fromLabel(w.from))} · ${md(w.addedOn)} 收录${w.times > 1 ? ` · 错过 ${w.times} 次` : ''}</span>
         <span class="wb-due ${!w.mastered && w.due <= T && w.addedOn < T ? 'hot' : ''}">${dueTxt} ${stageDots(w)}</span>
       </div>

@@ -571,3 +571,6 @@ mark.hl.has-note { border-bottom: 2px solid #b45309; }
 .login .btn { margin-top: 10px; }
 .login-err { color: var(--bad); font-weight: 700; text-align: left !important; }
 .small-note { font-size: 12px !important; margin-top: 6px !important; }
+.diff-tag { font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 5px; background: var(--chip); color: var(--ink-2); }
+.diff-tag.H { background: var(--bad-soft); color: var(--bad); }
+.diff-tag.M { background: var(--gold-soft); color: var(--gold-2); }

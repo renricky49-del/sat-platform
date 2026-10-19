@@ -16,7 +16,7 @@ import sys
 import glob
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-QDIR = os.path.join(ROOT, "cache", "q")
+QDIR = os.path.join(os.environ.get("SAT_CACHE", os.path.expanduser("~/Library/Caches/sat-platform")), "q")
 DATA = os.path.join(ROOT, "app", "data")
 
 # type id -> how to recognise it in the bank
@@ -118,27 +118,38 @@ def main(plan_path):
     for t, n in plan.get("extra", {}).items():
         need[t] = need.get(t, 0) + n
 
-    pools = {}
-    report = {}
-    for t, n in need.items():
+    # 每个题型分开 Hard / Medium 两个池子
+    hard_pool, med_pool = {}, {}
+    for t in need:
         cand = [q for q in bank if matches(q, t) and q["_meta"]["questionId"] not in used]
-        hard = [q for q in cand if q["_meta"]["difficulty"] == "H"]
-        med = [q for q in cand if q["_meta"]["difficulty"] == "M"]
-        rnd.shuffle(hard)
-        rnd.shuffle(med)
-        pick = (hard + med)[:n]
-        if len(pick) < n:
-            sys.exit(f"Not enough questions for {t}: need {n}, have {len(pick)} (fetch more with tools/fetch_bank.py)")
-        pools[t] = pick
-        report[t] = {"need": n, "hard": sum(1 for q in pick if q["_meta"]["difficulty"] == "H"),
-                     "hard_left_after": len(hard) - min(len(hard), n)}
+        hard_pool[t] = [q for q in cand if q["_meta"]["difficulty"] == "H"]
+        med_pool[t] = [q for q in cand if q["_meta"]["difficulty"] == "M"]
+        rnd.shuffle(hard_pool[t])
+        rnd.shuffle(med_pool[t])
+        if len(hard_pool[t]) + len(med_pool[t]) < need[t]:
+            sys.exit(f"Not enough questions for {t}: need {need[t]}, have {len(hard_pool[t]) + len(med_pool[t])} (fetch more with tools/fetch_bank.py)")
 
     questions = {}
+    used_h = {t: 0 for t in need}
+    used_m = {t: 0 for t in need}
+    rw_hard = plan.get("rwHard")  # 阅读每关只放几道 Hard，其余用 Medium；不写就是 Hard 优先
 
-    def take(t, n):
+    def take(t, n, hard=None):
+        """hard=None：Hard 优先；hard=k：先拿 k 道 Hard，其余 Medium（任一边不够就用另一边补）。"""
+        hp, mp = hard_pool[t], med_pool[t]
+        if hard is None:
+            seq = [hp] * n
+        else:
+            k = min(hard, n)
+            seq = [hp] * k + [mp] * (n - k)
         out = []
-        for _ in range(n):
-            q = pools[t].pop(0)
+        for src in seq:
+            pool = src if src else (mp if src is hp else hp)
+            q = pool.pop(0)
+            if q["_meta"]["difficulty"] == "H":
+                used_h[t] += 1
+            else:
+                used_m[t] += 1
             c = compact(q, t)
             questions[c["id"]] = c
             out.append(c["id"])
@@ -149,9 +160,14 @@ def main(plan_path):
         day = {"id": d["id"], "dates": d["dates"], "label": d.get("label", ""), "reading": [], "math": []}
         for sec in ("reading", "math"):
             for st in d.get(sec, []):
-                day[sec].append({"type": st["type"], "qids": take(st["type"], st["n"])})
+                k = st.get("hard", rw_hard if sec == "reading" else None)
+                day[sec].append({"type": st["type"], "qids": take(st["type"], st["n"], k)})
         days.append(day)
-    extra = {t: take(t, n) for t, n in plan.get("extra", {}).items()}
+    # 额外练习：设了 rwHard 时阅读题型用 Medium，把 Hard 留给以后的每日关卡
+    extra = {t: take(t, n, 0 if (rw_hard is not None and TYPES[t]["sec"] == "rw") else None)
+             for t, n in plan.get("extra", {}).items()}
+    report = {t: {"need": need[t], "hard": used_h[t], "medium": used_m[t],
+                  "hard_left": len(hard_pool[t]), "medium_left": len(med_pool[t])} for t in need}
 
     out = {
         "week": week,
@@ -180,7 +196,7 @@ def main(plan_path):
     size = os.path.getsize(os.path.join(DATA, fn))
     print(f"wrote {fn}: {len(questions)} questions, {size/1024:.0f} KB")
     for t, r in report.items():
-        print(f"  {t:10s} need {r['need']:3d}  hard {r['hard']:3d}  hard left in bank {r['hard_left_after']}")
+        print(f"  {t:10s} need {r['need']:3d}  hard {r['hard']:3d}  medium {r['medium']:3d}  | left in bank: hard {r['hard_left']}, medium {r['medium_left']}")
 
 
 if __name__ == "__main__":

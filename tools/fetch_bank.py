@@ -7,7 +7,7 @@ Usage:
 
 SKILL is a skill code (COE, CID, WIC, INF, ...) for Reading and Writing, or a
 domain code (H=Algebra, P=Advanced Math, Q=PSDA, S=Geometry and Trig) for Math.
-Details are cached in cache/q/<external_id>.json and never fetched twice.
+Details are cached in ~/Library/Caches/sat-platform/q/<external_id>.json (not in iCloud) and never fetched twice.
 """
 import json
 import os
@@ -17,8 +17,9 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LISTS = os.path.join(ROOT, "cache", "lists")
-QDIR = os.path.join(ROOT, "cache", "q")
+CACHE = os.environ.get("SAT_CACHE", os.path.expanduser("~/Library/Caches/sat-platform"))
+LISTS = os.path.join(CACHE, "lists")
+QDIR = os.path.join(CACHE, "q")
 API = "https://qbank-api.collegeboard.org/msreportingquestionbank-prod/questionbank"
 
 

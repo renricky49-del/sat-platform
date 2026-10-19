@@ -154,7 +154,7 @@ VIEWS.qview = (p) => {
   const backP = p.back || { name: 'home', params: {} };
   $('#app').innerHTML = `<div class="bb review-mode">
     <header class="bb-top">
-      <div class="bb-title"><div class="bb-sec">${esc(p.title || '题目解析')}</div><div class="bb-sub"><span class="bb-chip">${esc(typeName(q.type))} · ${q.diff === 'H' ? 'Hard' : q.diff === 'M' ? 'Medium' : 'Easy'} · Question ID ${esc(q.id)}</span></div></div>
+      <div class="bb-title"><div class="bb-sec">${esc(p.title || '题目解析')}</div><div class="bb-sub"><span class="bb-chip">${esc(typeName(q.type))} · ${q.diff === 'H' ? 'Hard' : q.diff === 'M' ? 'Medium' : q.diff === 'E' ? 'Easy' : '难度未知'} · ${q.src ? esc(q.src) : 'Question ID ' + esc(q.id)}</span></div></div>
       <div class="bb-verdict ${ok ? 'ok' : 'bad'}">${!answered ? '未作答' : ok ? '答对了' : '答错了'}${a.t ? `<small>用时 ${fmtSec(a.t)}</small>` : ''}</div>
       <div class="bb-tools"><button class="bb-tool" id="qvBack">${ICON.exit}<span>返回</span></button></div>
     </header>
@@ -165,7 +165,7 @@ VIEWS.qview = (p) => {
         <div class="bb-qbar"><span class="bb-num">${p.idx + 1}</span><span class="bb-qtype">${esc(typeName(q.type))}</span></div>
         <div class="qhtml bb-stem hl-zone" data-k="s">${q.stem}</div>
         ${opts}
-        <div class="explain"><h4>解析 <span class="muted">（College Board 官方解析）</span></h4><div class="qhtml">${q.rat}</div></div>
+        <div class="explain"><h4>解析 <span class="muted">${q.src ? '（Claude 编写）' : '（College Board 官方解析）'}</span></h4><div class="qhtml">${q.rat}</div></div>
         <div class="note-box">
           <h4>我的笔记</h4>
           ${canEdit ? `<textarea id="qvNote" rows="3" placeholder="写下订正思路、易错点…">${esc(note)}</textarea><div class="nb-btns"><span class="muted" id="qvNoteSaved"></span><button class="btn small" id="qvNoteSave">保存笔记</button></div>` : `<p>${note ? esc(note) : '<span class="muted">没有笔记</span>'}</p>`}
