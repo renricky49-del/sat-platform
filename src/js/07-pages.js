@@ -95,10 +95,10 @@ VIEWS.records = () => {
       <td>${x.st.status === 'done' ? fmtClock(x.st.timeMs) : '—'}</td>
       <td>${x.st.hist ? Math.round(x.st.hist.acc * 100) + '%' : '—'}</td></tr>`).join('');
     return `<div class="rec">
-      <div class="rec-head"><b>${mdw(r.startedOn)}</b><span>${esc(p ? PLAN_LABEL(p) : r.dayId)}${r.makeup ? ' · 补做' : ''}${r.early ? ' · 提前' : ''}</span>
+      <div class="rec-head"><b>${mdw(r.startedOn)}</b><span>${esc(p ? PLAN_LABEL(p) : r.dayId)}${r.makeup ? ' · 补做' : ''}${r.early ? ' · 提前' : ''}${r.external ? ' · 在其他网站完成（无题目记录）' : ''}</span>
         <span class="rec-coin"><i class="coin sm"></i>+${runCoins(r)}</span>${r.doneAt ? '<span class="ok-tag">完成</span>' : ''}</div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>关卡</th><th>正确</th><th>用时</th><th>往期平均</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="rec-foot muted">阅读部分 ${r.sections.rw.doneAt ? fmtDur(r.sections.rw.usedMs) : '未完成'} · 数学部分 ${r.sections.math.doneAt ? fmtDur(r.sections.math.usedMs) : '未完成'}</div>
+      ${r.external ? '' : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>关卡</th><th>正确</th><th>用时</th><th>往期平均</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="rec-foot muted">阅读部分 ${r.sections.rw.doneAt ? fmtDur(r.sections.rw.usedMs) : '未完成'} · 数学部分 ${r.sections.math.doneAt ? fmtDur(r.sections.math.usedMs) : '未完成'}</div>`}
     </div>`;
   }).join('') || '<p class="empty">还没有练习记录。</p>';
   const revHTML = revs.map((r) => `<li><b>${mdw(r.date)}</b>
