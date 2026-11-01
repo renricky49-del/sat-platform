@@ -258,34 +258,84 @@ VIEWS.weekly = () => {
     ${weeks.map((ws) => weekCardHTML(weekReport(ws))).join('')}</section>`, 'weekly');
 };
 
+/* ============ 每日任务记录（家长、老师共用） ============ */
+function dailySectionText(runs, history, sec, estimate) {
+  const sections = runs.filter((r) => !r.external).map((r) => r.sections[sec]);
+  const stages = sections.flatMap((s) => s.stages).filter((s) => s.status === 'done');
+  const n = sum(stages, (s) => s.total);
+  if (n) {
+    const c = sum(stages, (s) => s.correct);
+    const whole = sections.every((s) => s.doneAt);
+    const ms = whole ? sum(sections, (s) => s.usedMs) : sum(stages, (s) => s.timeMs);
+    return `${pct(c, n)}%（${c}/${n}） · ${fmtClock(ms)}${whole ? '' : '（已记录部分）'}`;
+  }
+  if (!estimate) return '—';
+  const samples = history.filter((r) => !r.external).map((r) => r.sections[sec])
+    .filter((s) => s.doneAt && s.usedMs > 0 && s.stages.some((st) => st.status === 'done' && st.total > 0));
+  if (!samples.length) return '暂无此前实测';
+  const prior = samples.flatMap((s) => s.stages).filter((st) => st.status === 'done');
+  const acc = pct(sum(prior, (st) => st.correct), sum(prior, (st) => st.total));
+  const minutes = Math.round(sum(samples, (s) => s.usedMs) / samples.length / 60000);
+  return `估算 ${acc}% · 约 ${minutes} 分钟`;
+}
+
+function dailyTasksHTML() {
+  const T = todayStr(), current = weekStart(T), runs = Store.all('runs');
+  const weeks = new Set(allWeekStarts());
+  for (const item of Store.all('attendance')) weeks.add(weekStart(item.date));
+  const blocks = [...weeks].filter((ws) => ws <= current).sort().reverse().map((ws) => {
+    let count = 0;
+    const rows = [];
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(ws, i);
+      if (d < START || d > T) continue;
+      const report = Store.get('attendance', d);
+      const dayRuns = runs.filter((r) => r.startedOn === d);
+      const history = runs.filter((r) => r.startedOn < d);
+      const review = Store.get('reviews', d);
+      const plan = planOfDate(d);
+      const runDone = dayRuns.some((r) => r.doneAt);
+      const reviewDone = review && !review.empty && review.doneAt;
+      let status, done = false;
+      if (report && report.status === 'missed') status = '未完成 · 本人补录';
+      else if (runDone) {
+        done = true;
+        status = dayRuns.some((r) => r.doneAt && !r.external) ? '已完成 · 站内记录' : '已完成 · 站外记录';
+      } else if (report && report.status === 'done') { done = true; status = '已完成 · 本人补录'; }
+      else if (reviewDone && !plan && !dayRuns.length) { done = true; status = '已完成 · 错题巩固'; }
+      else if (dayRuns.length || (review && !review.empty)) status = '进行中';
+      else status = plan ? (d === T ? '待做' : '未见完成记录') : '无记录';
+      if (done) count++;
+      const estimated = done && (runDone || report?.status === 'done');
+      const reviewText = !review || review.empty ? '—' : reviewDone
+        ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
+        : '未完成';
+      rows.push(`<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
+        <td>${status}</td><td>${dailySectionText(dayRuns, history, 'rw', estimated)}</td>
+        <td>${dailySectionText(dayRuns, history, 'math', estimated)}</td><td>${reviewText}</td><td>${coinsOnDate(d) || '—'}</td></tr>`);
+    }
+    const end = addDays(ws, 6);
+    return `<details class="task-week"${ws === current ? ' open' : ''}>
+      <summary>${md(ws < START ? START : ws)} – ${md(end > T ? T : end)} · 完成 ${count} 天 / 每周目标 5 天</summary>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>任务完成情况</th><th>阅读与写作 · 正确率及用时</th><th>数学 · 正确率及用时</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+    </details>`;
+  });
+  return `<section class="card daily-tasks"><div class="sec-head"><h2>每日任务完成情况</h2><span class="muted">截至 ${mdw(T)} · 美西时间</span></div>
+    <p class="muted">补录来自学生本人。缺少当日成绩时，估算取该日期之前已完整做完的同科练习，正确率按题数加权，用时取平均。周报和题型统计只使用已有练习记录。</p>
+    ${blocks.join('')}</section>`;
+}
+
 /* ============ 家长视图 ============ */
 VIEWS.parent = () => {
-  const T = todayStr();
-  const ws = weekStart(T);
-  const days = [];
-  for (let i = 0; i < 7; i++) days.push(addDays(ws, i));
-  const rows = days.map((d) => {
-    const runs = Store.all('runs').filter((r) => r.startedOn === d);
-    const rev = Store.get('reviews', d);
-    const r = runs[0];
-    const secTxt = (sec) => { if (!r) return '—'; const S = r.sections[sec]; const c = sum(S.stages.filter((x) => x.status === 'done'), (x) => x.correct), n = sum(S.stages.filter((x) => x.status === 'done'), (x) => x.total); return n ? `${pct(c, n)}%（${c}/${n}）${S.doneAt ? ' · ' + fmtClock(S.usedMs) : ''}` : '未开始'; };
-    const plan = planOfDate(d);
-    return `<tr class="${d === T ? 'today' : ''}"><td>${mdw(d)}</td>
-      <td>${r ? (r.doneAt ? '<span class="ok-tag">完成</span>' : '进行中') : plan ? (d < T ? '<span class="bad-tag">未做</span>' : '待做') : '—'}</td>
-      <td>${secTxt('rw')}</td><td>${secTxt('math')}</td>
-      <td>${rev && !rev.empty ? (rev.doneAt ? `完成 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}` : '未完成') : '—'}</td>
-      <td>${coinsOnDate(d) || '—'}</td></tr>`;
-  }).join('');
+  const ws = weekStart(todayStr());
   const past = allWeekStarts().filter((w) => w !== ws);
   mount(`${ROLE === 'student' ? '<div class="notice">这是家长看到的页面（预览）。</div>' : ''}
     <section class="card"><div class="sec-head"><h1>家长视图</h1><button class="btn small ghost" id="refresh">刷新数据</button></div>
-      ${weekCardHTML(weekReport(ws))}
     </section>
-    <section class="card"><div class="sec-head"><h2>本周每日答题情况</h2><span class="muted">美西时间</span></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>新题</th><th>阅读 正确率 · 用时</th><th>数学 正确率 · 用时</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows}</tbody></table></div>
-    </section>
+    ${dailyTasksHTML()}
+    <section class="card"><div class="sec-head"><h2>本周练习记录统计</h2></div>${weekCardHTML(weekReport(ws), { recorded: true })}</section>
     ${redeemHTML(false)}
-    ${past.length ? `<section class="card"><div class="sec-head"><h2>往期周报</h2></div>${past.map((w) => weekCardHTML(weekReport(w), { pet: false })).join('')}</section>` : ''}`, 'parent');
+    ${past.length ? `<section class="card"><div class="sec-head"><h2>往期周报</h2></div>${past.map((w) => weekCardHTML(weekReport(w), { pet: false, recorded: true })).join('')}</section>` : ''}`, 'parent');
   bindRefresh();
   bindRedeem(VIEWS.parent);
 };
@@ -309,6 +359,7 @@ VIEWS.teacher = () => {
         <p class="muted">每日新题按题型统计；“最近 3 次”是最近三次该题型关卡的正确率（%）。难度均为 Hard（题库不足时会用 Medium 补充，题目页有标注）。</p>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>题型</th><th>新题数</th><th>正确率</th><th>平均每题</th><th>最近 3 次</th><th>额外练习</th><th>错题巩固</th><th>错题 待复习/已掌握</th></tr></thead><tbody>${rows}</tbody></table></div>
       </section>
+      ${dailyTasksHTML()}
       <section class="card"><div class="sec-head"><h2>错题详情</h2><span class="muted">点「查看题目与解析」看原题、学生答案和笔记</span></div>
         ${wbFilters()}<ul class="wb-list">${wrongList(true)}</ul></section>`, 'teacher');
     bindRefresh();

@@ -249,7 +249,7 @@ function weekCardHTML(rep, opts = {}) {
   const lvUp = rep.levelEnd > rep.levelStart;
   const live = todayStr() <= rep.we;
   return `<div class="week-card">
-    <div class="wk-head"><h3>${md(rep.ws)} – ${md(rep.we)}${live ? '<span class="live">进行中</span>' : ''}</h3><span class="muted">完成新题 ${rep.daysDone} 天 · 错题巩固 ${rep.reviewsDone} 天</span></div>
+    <div class="wk-head"><h3>${md(rep.ws)} – ${md(rep.we)}${live ? '<span class="live">进行中</span>' : ''}</h3><span class="muted">${opts.recorded ? `已有新题完成记录 ${rep.daysDone} 组` : `完成新题 ${rep.daysDone} 天`} · 错题巩固 ${rep.reviewsDone} 天</span></div>
     <div class="wk-grid">
       <div><span>阅读总正确率</span><b>${rep.rwAcc[1] ? pct(rep.rwAcc[0], rep.rwAcc[1]) + '%' : '—'}</b><small>${rep.rwAcc[0]}/${rep.rwAcc[1]} 题</small></div>
       <div><span>数学总正确率</span><b>${rep.mathAcc[1] ? pct(rep.mathAcc[0], rep.mathAcc[1]) + '%' : '—'}</b><small>${rep.mathAcc[0]}/${rep.mathAcc[1]} 题</small></div>

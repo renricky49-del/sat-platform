@@ -1,5 +1,5 @@
 /* ============ 启动 ============ */
-const COLLECTIONS = ['runs', 'reviews', 'wrong', 'notes', 'extras', 'days', 'weekly', 'meta'];
+const COLLECTIONS = ['runs', 'reviews', 'wrong', 'notes', 'extras', 'days', 'weekly', 'meta', 'attendance'];
 
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-go]');
