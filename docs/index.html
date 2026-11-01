@@ -2624,8 +2624,10 @@ function dailyTasksHTML() {
       const runDone = dayRuns.some((r) => r.doneAt);
       const reviewDone = review && !review.empty && review.doneAt;
       let status, done = false;
-      if (report && report.status === 'missed') status = '未完成 · 本人补录';
-      else if (runDone) {
+      if (report && report.status === 'missed') {
+        status = '未完成 · 本人补录';
+        if (runDone) status += dayRuns.some((r) => r.doneAt && !r.external) ? '（另有站内完成记录）' : '（另有站外完成记录）';
+      } else if (runDone) {
         done = true;
         status = dayRuns.some((r) => r.doneAt && !r.external) ? '已完成 · 站内记录' : '已完成 · 站外记录';
       } else if (report && report.status === 'done') { done = true; status = '已完成 · 本人补录'; }
