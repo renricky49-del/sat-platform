@@ -259,39 +259,92 @@ VIEWS.weekly = () => {
 };
 
 /* ============ 每日任务记录（家长、老师共用） ============ */
-function dailySectionText(runs, history, sec, estimate) {
-  const sections = runs.filter((r) => !r.external).map((r) => r.sections[sec]);
-  const stages = sections.flatMap((s) => s.stages).filter((s) => s.status === 'done');
-  const n = sum(stages, (s) => s.total);
-  if (n) {
-    const c = sum(stages, (s) => s.correct);
-    const whole = sections.every((s) => s.doneAt);
-    const ms = whole ? sum(sections, (s) => s.usedMs) : sum(stages, (s) => s.timeMs);
-    return `${pct(c, n)}%（${c}/${n}） · ${fmtClock(ms)}${whole ? '' : '（已记录部分）'}`;
+function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
+  const measured = { n: 0, c: 0, ms: 0 }, missing = [];
+  const planKey = sec === 'rw' ? 'reading' : 'math';
+  let partial = false;
+  for (const run of dayRuns.length ? dayRuns : [null]) {
+    const section = run && !run.external && run.sections[sec];
+    const stages = section?.stages || [];
+    const scored = stages.filter((st) => st.status === 'done' && st.total > 0);
+    measured.n += sum(scored, (st) => st.total);
+    measured.c += sum(scored, (st) => st.correct);
+    const ms = section?.doneAt ? section.usedMs : sum(scored, (st) => st.timeMs);
+    measured.ms += ms;
+    if (scored.length && section.doneAt) continue;
+    partial = true;
+    if (!estimate) continue;
+    const plan = run ? PLAN.find((p) => p.id === run.dayId) : dayPlan;
+    const remaining = stages.length
+      ? stages.filter((st) => st.status !== 'done').map((st) => ({ type: st.type, n: st.total }))
+      : plan?.[planKey]?.map((st) => ({ type: st.type, n: st.qids.length }));
+    if (!remaining || remaining.length) missing.push({ remaining, budget: Math.max(0, (section?.limitMs ?? SEC_LIMIT[sec]) - ms) });
   }
-  if (!estimate) return '—';
-  const samples = history.filter((r) => !r.external).map((r) => r.sections[sec])
-    .filter((s) => s.doneAt && s.usedMs > 0 && s.stages.some((st) => st.status === 'done' && st.total > 0));
-  if (!samples.length) return '暂无此前实测';
-  const prior = samples.flatMap((s) => s.stages).filter((st) => st.status === 'done');
-  const acc = pct(sum(prior, (st) => st.correct), sum(prior, (st) => st.total));
-  const minutes = Math.round(sum(samples, (s) => s.usedMs) / samples.length / 60000);
-  return `估算 ${acc}% · 约 ${minutes} 分钟`;
+  const actual = { ...measured, label: partial ? '已记录部分' : '实测' };
+  if (!missing.length) return measured.n ? actual : null;
+
+  // 只用站内完整实测作基线。早于首次实测的补录使用最近一次后续实测，并在页面单独标注。
+  const samples = runs.filter((r) => !r.external && r.sections[sec].doneAt && r.sections[sec].usedMs > 0
+    && r.sections[sec].stages.some((st) => st.status === 'done' && st.total > 0));
+  let reference = samples.filter((r) => r.startedOn < date);
+  const backcast = !reference.length;
+  if (backcast) {
+    const first = samples.map((r) => r.startedOn).filter((d) => d > date).sort()[0];
+    reference = samples.filter((r) => r.startedOn === first);
+  }
+  if (!reference.length) return measured.n ? actual : null;
+  const sections = reference.map((r) => r.sections[sec]);
+  const pool = sections.flatMap((s) => s.stages).filter((st) => st.status === 'done' && st.total > 0);
+  const total = sum(pool, (st) => st.total);
+  const subjectRate = sum(pool, (st) => st.correct) / total;
+  const subjectPace = sum(sections, (s) => s.usedMs) / total;
+  const result = { ...measured, label: backcast ? '回推估算' : '历史估算', measured: measured.n ? measured : null };
+  for (const { remaining, budget } of missing) {
+    let estimatedMs = 0;
+    for (const group of remaining ?? [{ n: total / sections.length }]) {
+      const same = group.type ? pool.filter((st) => st.type === group.type) : [];
+      const n = sum(same, (st) => st.total);
+      const rate = n ? sum(same, (st) => st.correct) / n : subjectRate;
+      const pace = n && same.every((st) => st.timeMs > 0) ? sum(same, (st) => st.timeMs) / n : subjectPace;
+      result.n += group.n;
+      result.c += rate * group.n;
+      estimatedMs += pace * group.n;
+    }
+    result.ms += Math.min(budget, estimatedMs);
+  }
+  return result;
+}
+
+function performanceText(m, days = 1) {
+  return `${(100 * m.c / m.n).toFixed(2)}% · ${fmtDur(m.ms / days)} · ${(m.ms / m.n / 1000).toFixed(2)} 秒/题`;
+}
+
+function dailySectionHTML(m) {
+  if (!m) return '—';
+  const measured = m.measured;
+  const detail = measured ? `<br><small>其中实测 ${measured.c}/${measured.n} · ${performanceText(measured)}</small>` : '';
+  return `<small>${m.label}</small><br>${performanceText(m)}${detail}`;
+}
+
+function weeklySectionHTML(days, name) {
+  if (!days.length) return '';
+  const total = { n: sum(days, (m) => m.n), c: sum(days, (m) => m.c), ms: sum(days, (m) => m.ms) };
+  const includesEstimates = days.some((m) => m.label.includes('估算'));
+  return `<div><b>${name}</b> · ${performanceText(total, days.length)}${includesEstimates ? '（含估算）' : '（实测）'}</div>`;
 }
 
 function dailyTasksHTML() {
-  const T = todayStr(), current = weekStart(T), runs = Store.all('runs');
+  const T = todayStr(), current = weekStart(T), runs = Store.all('runs').filter((r) => r.startedOn <= T);
   const weeks = new Set(allWeekStarts());
   for (const item of Store.all('attendance')) weeks.add(weekStart(item.date));
   const blocks = [...weeks].filter((ws) => ws <= current).sort().reverse().map((ws) => {
     let count = 0;
-    const rows = [];
+    const rows = [], weekly = { rw: [], math: [] };
     for (let i = 0; i < 7; i++) {
       const d = addDays(ws, i);
       if (d < START || d > T) continue;
       const report = Store.get('attendance', d);
       const dayRuns = runs.filter((r) => r.startedOn === d);
-      const history = runs.filter((r) => r.startedOn < d);
       const review = Store.get('reviews', d);
       const plan = planOfDate(d);
       const runDone = dayRuns.some((r) => r.doneAt);
@@ -309,21 +362,26 @@ function dailyTasksHTML() {
       else status = plan ? (d === T ? '待做' : '未见完成记录') : '无记录';
       if (done) count++;
       const estimated = done && (runDone || report?.status === 'done');
+      const rw = dailySectionMetrics(d, 'rw', runs, dayRuns, plan, estimated);
+      const math = dailySectionMetrics(d, 'math', runs, dayRuns, plan, estimated);
+      if (done && rw) weekly.rw.push(rw);
+      if (done && math) weekly.math.push(math);
       const reviewText = !review || review.empty ? '—' : reviewDone
         ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
         : '未完成';
       rows.push(`<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
-        <td>${status}</td><td>${dailySectionText(dayRuns, history, 'rw', estimated)}</td>
-        <td>${dailySectionText(dayRuns, history, 'math', estimated)}</td><td>${reviewText}</td><td>${coinsOnDate(d) || '—'}</td></tr>`);
+        <td>${status}</td><td>${dailySectionHTML(rw)}</td>
+        <td>${dailySectionHTML(math)}</td><td>${reviewText}</td><td>${coinsOnDate(d) || '—'}</td></tr>`);
     }
     const end = addDays(ws, 6);
     return `<details class="task-week"${ws === current ? ' open' : ''}>
       <summary>${md(ws < START ? START : ws)} – ${md(end > T ? T : end)} · 完成 ${count} 天 / 每周目标 5 天</summary>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>任务完成情况</th><th>阅读与写作 · 正确率及用时</th><th>数学 · 正确率及用时</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      ${weekly.rw.length || weekly.math.length ? `<div class="task-averages"><small>完成日汇总 · 正确率 / 日均用时 / 平均每题用时</small>${weeklySectionHTML(weekly.rw, '阅读与写作')}${weeklySectionHTML(weekly.math, '数学')}</div>` : ''}
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>任务完成情况</th><th>阅读与写作 · 正确率 / 用时 / 每题</th><th>数学 · 正确率 / 用时 / 每题</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
     </details>`;
   });
   return `<section class="card daily-tasks"><div class="sec-head"><h2>每日任务完成情况</h2><span class="muted">截至 ${mdw(T)} · 美西时间</span></div>
-    <p class="muted">补录来自学生本人。缺少当日成绩时，估算取该日期之前已完整做完的同科练习，正确率按题数加权，用时取平均。周报和题型统计只使用已有练习记录。</p>
+    <p class="muted">缺少成绩时，优先按此前同题型实测均值估算，无同题型样本则取同科均值。没有当天题数时采用历史平均题量。早于首次实测的日期标为「回推估算」。</p>
     ${blocks.join('')}</section>`;
 }
 
