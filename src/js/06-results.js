@@ -224,6 +224,8 @@ function showSettlement(T) {
     rows.push(['数学正确率奖' + tag, c.mathAcc, n.mathAcc, r.sections.math.doneAt]);
     rows.push(['完成当天习题' + tag, c.done, r.doneAt ? '新题全部完成' : '还没做完', r.doneAt]);
   }
+  const credit = completionCredit(T, runs);
+  if (credit) rows.push(['补发完成奖', credit, '已确认完成，扣除同日已发完成奖', true]);
   rows.push(['完成错题巩固', rev ? rev.coin : 0, !rev || rev.empty ? '今天没有到期的错题' : rev.doneAt ? `答对 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}` : '还没做完', true]);
   const newly = allUnlocks().filter((u) => u.at > before && u.at <= after);
   const m = modal(`<div class="settle">
@@ -267,7 +269,7 @@ function weekCardHTML(rep, opts = {}) {
 }
 function showWeekly(ws) {
   const rep = weekReport(ws);
-  const m = modal(`<div class="weekly-modal"><div class="kicker">每周结算</div><h2 class="settle-title">本周周报</h2>${weekCardHTML(rep)}<button class="btn primary big" id="wkOk">下周继续加油</button></div>`, { cls: 'wide' });
+  const m = modal(`<div class="weekly-modal"><div class="kicker">每周结算</div><h2 class="settle-title">本周周报</h2>${dailyTasksHTML(ws)}${weekCardHTML(rep, { recorded: true })}<button class="btn primary big" id="wkOk">下周继续加油</button></div>`, { cls: 'wide' });
   if (Store.canWrite && ROLE === 'student') Store.put('weekly', ws, { ws, seenAt: Date.now(), coins: rep.coins, rwAcc: rep.rwAcc, mathAcc: rep.mathAcc, rwAvg: rep.rwAvg, mathAvg: rep.mathAvg, levelStart: rep.levelStart, levelEnd: rep.levelEnd });
   m.el.querySelector('#wkOk').onclick = () => { m.close(); if (VIEW.name === 'home') go('home'); };
 }

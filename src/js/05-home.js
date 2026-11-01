@@ -67,7 +67,7 @@ function confirmBox(title, text, okLabel, onOk) {
 function dayStages(run) { return [...run.sections.rw.stages.map((s, i) => ({ sec: 'rw', idx: i, st: s })), ...run.sections.math.stages.map((s, i) => ({ sec: 'math', idx: i, st: s }))]; }
 function nextTask(T = todayStr()) {
   const s = todayStatus(T);
-  if (s.p) {
+  if (s.p && !s.planDone) {
     if (!s.run) return { kind: 'start', p: s.p };
     for (const sec of ['rw', 'math']) {
       const idx = s.run.sections[sec].stages.findIndex((x) => x.status !== 'done');
@@ -142,6 +142,7 @@ VIEWS.home = () => {
     <div class="sec-head"><h2>本周地图</h2><span class="muted">${md(weekStart(T))} – ${md(addDays(weekStart(T), 6))}</span></div>
     ${weekMapHTML(T)}
   </section>
+  ${dailyTasksHTML(weekStart(T))}
   <section class="card room-card">
     <div class="sec-head"><h2>${esc(petName(ap.cat))}的小窝</h2><button class="lnk" data-go="pet">换装与解锁 →</button></div>
     ${roomHTML({ coins, id: 'homeRoom' })}
@@ -177,7 +178,10 @@ function questCard(s) {
   const T = s.T;
   const t = nextTask(T);
   let title, sub = '', chips = '', cta = '', extra = '';
-  if (s.p) {
+  if (s.report?.status === 'done') {
+    title = s.revDone ? '今日任务已完成' : '新题已完成，接着巩固错题';
+    sub = s.revDone ? '完成情况已同步到练习记录和周报。' : `还有 ${s.dueN} 道到期错题。`;
+  } else if (s.p) {
     const label = `${PLAN_LABEL(s.p)}`;
     const list = s.run ? dayStages(s.run) : [...s.p.reading.map((x) => ({ sec: 'rw', st: { type: x.type, qids: x.qids, total: x.qids.length, status: 'todo' } })), ...s.p.math.map((x) => ({ sec: 'math', st: { type: x.type, qids: x.qids, total: x.qids.length, status: 'todo' } }))];
     chips = `<ol class="stage-list">${list.map((x) => stageChip(x.st, x.sec, t && t.kind === 'stage' && t.sec === x.sec && t.idx === x.idx)).join('')}
@@ -206,6 +210,7 @@ function questCard(s) {
   return `<div class="card quest ${s.allDone && s.hasTasks ? 'cleared' : ''}">
     <div class="quest-head"><div><h1>${title}</h1><p class="muted">${sub}</p></div>
       <div class="quest-date"><span>${md(T)}</span><b>${WD[dow(T)]}</b></div></div>
+    ${s.report?.status === 'missed' ? '<p class="muted">今日补录状态 · 未完成</p>' : ''}
     ${chips}
     <div class="quest-cta">${cta}${extra}</div>
   </div>`;
@@ -240,6 +245,9 @@ function weekMapHTML(T) {
       label = (rev && !rev.empty) || dueWrong(d).length ? '巩固' : '休息';
       if (rev && rev.doneAt && !rev.empty) state = 'clear';
     } else { label = '巩固'; state = 'future'; }
+    const reported = d <= T && Store.get('attendance', d)?.status;
+    if (reported === 'done') { label = '补录完成'; state = 'clear'; }
+    if (reported === 'missed') { label = '未完成'; state = 'miss'; }
     const c = coinsOnDate(d);
     nodes.push(`<li class="wm-node ${state}">
       <div class="wm-dot">${state === 'clear' ? '★' : state === 'miss' ? '!' : i + 1}</div>
@@ -254,7 +262,7 @@ function weekMapHTML(T) {
 function maybeGuide(s) {
   const cta = $('#ctaMain');
   if (!cta) return;
-  const notStarted = s.p && !s.run;
+  const notStarted = s.p && !s.run && !s.planDone;
   if (!notStarted) return;
   const key = 'sat:guide:' + s.T;
   try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch (e) { /* 继续显示 */ }

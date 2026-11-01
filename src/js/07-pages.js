@@ -89,14 +89,16 @@ VIEWS.records = () => {
   const exs = Store.all('extras').filter((e) => e.status === 'done').sort((a, b) => b.createdAt - a.createdAt);
   const runHTML = runs.map((r) => {
     const p = PLAN.find((x) => x.id === r.dayId);
+    const reported = Store.get('attendance', r.startedOn)?.status;
+    const status = reported === 'missed' ? '当日未完成' : r.doneAt ? '完成' : reported === 'done' ? '当日补录完成' : '';
     const rows = dayStages(r).map((x) => `<tr class="${x.st.status === 'done' ? 'clickable' : ''}" data-run="${r.dayId}" data-sec="${x.sec}" data-idx="${x.idx}">
       <td><span class="badge ${x.sec}">${SEC_NAME[x.sec]}</span> ${esc(typeName(x.st.type))}</td>
       <td>${x.st.status === 'done' ? `${x.st.correct}/${x.st.total}（${pct(x.st.correct, x.st.total)}%）` : x.st.status === 'active' ? '进行中' : '未开始'}</td>
       <td>${x.st.status === 'done' ? fmtClock(x.st.timeMs) : '—'}</td>
       <td>${x.st.hist ? Math.round(x.st.hist.acc * 100) + '%' : '—'}</td></tr>`).join('');
     return `<div class="rec">
-      <div class="rec-head"><b>${mdw(r.startedOn)}</b><span>${esc(p ? PLAN_LABEL(p) : r.dayId)}${r.makeup ? ' · 补做' : ''}${r.early ? ' · 提前' : ''}${r.external ? ' · 在其他网站完成（无题目记录）' : ''}</span>
-        <span class="rec-coin"><i class="coin sm"></i>+${runCoins(r)}</span>${r.doneAt ? '<span class="ok-tag">完成</span>' : ''}</div>
+      <div class="rec-head"><b>${mdw(r.startedOn)}</b><span>${esc(p ? PLAN_LABEL(p) : r.dayId)}${r.makeup ? ' · 补做' : ''}${r.early ? ' · 提前' : ''}${r.external ? ' · 站外原始记录（无逐题明细）' : ''}</span>
+        <span class="rec-coin" title="此关原始奖励，补发金币见每日记录"><i class="coin sm"></i>+${runCoins(r)}</span>${status ? `<span class="${reported === 'missed' ? 'muted' : 'ok-tag'}">${status}</span>` : ''}</div>
       ${r.external ? '' : `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>关卡</th><th>正确</th><th>用时</th><th>往期平均</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="rec-foot muted">阅读部分 ${r.sections.rw.doneAt ? fmtDur(r.sections.rw.usedMs) : '未完成'} · 数学部分 ${r.sections.math.doneAt ? fmtDur(r.sections.math.usedMs) : '未完成'}</div>`}
     </div>`;
@@ -105,7 +107,8 @@ VIEWS.records = () => {
       ${['rw', 'math'].map((sec) => { const S = r.sections[sec]; return S.qids.length ? `<button class="lnk rv-open" data-d="${r.date}" data-sec="${sec}">${SEC_NAME[sec]} ${S.status === 'done' ? `${S.correct}/${S.total}` : '未完成'}</button>` : ''; }).join(' · ')}
       ${r.coin ? `<span class="rec-coin"><i class="coin sm"></i>+${r.coin}</span>` : ''}</li>`).join('') || '<li class="empty">还没有错题巩固记录。</li>';
   const exHTML = exs.map((e) => `<li><b>${mdw(e.date)}</b> ${esc(typeName(e.type))} <button class="lnk ex-open" data-id="${e.id}">${e.correct}/${e.total}</button> <span class="muted">${fmtClock(e.usedMs)}</span></li>`).join('') || '<li class="empty">还没有额外练习。</li>';
-  mount(`<section class="card"><div class="sec-head"><h1>练习记录</h1><span class="muted">点关卡查看每道题</span></div>${runHTML}</section>
+  mount(`${dailyTasksHTML()}
+    <section class="card"><div class="sec-head"><h1>原始关卡记录</h1><span class="muted">点关卡查看逐题作答</span></div>${runHTML}</section>
     <div class="two-col">
       <section class="card"><div class="sec-head"><h2>错题巩固</h2></div><ul class="simple-list">${revHTML}</ul></section>
       <section class="card"><div class="sec-head"><h2>额外练习</h2></div><ul class="simple-list">${exHTML}</ul></section>
@@ -250,15 +253,17 @@ function allWeekStarts() {
   const set = new Set([weekStart(todayStr())]);
   Store.all('runs').forEach((r) => set.add(weekStart(r.startedOn)));
   Store.all('reviews').forEach((r) => set.add(weekStart(r.date)));
+  Store.all('attendance').forEach((r) => set.add(weekStart(r.date)));
   return [...set].filter((w) => w >= weekStart(START)).sort().reverse();
 }
 VIEWS.weekly = () => {
   const weeks = allWeekStarts();
-  mount(`<section class="card"><div class="sec-head"><h1>周报</h1><span class="muted">每周日做完任务后自动结算</span></div>
-    ${weeks.map((ws) => weekCardHTML(weekReport(ws))).join('')}</section>`, 'weekly');
+  mount(`${dailyTasksHTML()}
+    <section class="card"><div class="sec-head"><h1>周报</h1><span class="muted">原始练习统计与每周金币</span></div>
+    ${weeks.map((ws) => weekCardHTML(weekReport(ws), { recorded: true })).join('')}</section>`, 'weekly');
 };
 
-/* ============ 每日任务记录（家长、老师共用） ============ */
+/* ============ 每日任务记录（三个角色共用） ============ */
 function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
   const measured = { n: 0, c: 0, ms: 0 }, missing = [];
   const planKey = sec === 'rw' ? 'reading' : 'math';
@@ -333,11 +338,10 @@ function weeklySectionHTML(days, name) {
   return `<div><b>${name}</b> · ${performanceText(total, days.length)}${includesEstimates ? '（含估算）' : '（实测）'}</div>`;
 }
 
-function dailyTasksHTML() {
+function dailyTasksHTML(week) {
   const T = todayStr(), current = weekStart(T), runs = Store.all('runs').filter((r) => r.startedOn <= T);
-  const weeks = new Set(allWeekStarts());
-  for (const item of Store.all('attendance')) weeks.add(weekStart(item.date));
-  const blocks = [...weeks].filter((ws) => ws <= current).sort().reverse().map((ws) => {
+  const weeks = week ? [week] : allWeekStarts();
+  const blocks = weeks.filter((ws) => ws <= current).map((ws) => {
     let count = 0;
     const rows = [], weekly = { rw: [], math: [] };
     for (let i = 0; i < 7; i++) {
@@ -369,12 +373,14 @@ function dailyTasksHTML() {
       const reviewText = !review || review.empty ? '—' : reviewDone
         ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
         : '未完成';
+      const coins = coinsOnDate(d), credit = completionCredit(d, dayRuns);
+      const coinText = credit ? `${coins}<br><small>含补发 ${credit}</small>` : coins || '—';
       rows.push(`<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
         <td>${status}</td><td>${dailySectionHTML(rw)}</td>
-        <td>${dailySectionHTML(math)}</td><td>${reviewText}</td><td>${coinsOnDate(d) || '—'}</td></tr>`);
+        <td>${dailySectionHTML(math)}</td><td>${reviewText}</td><td>${coinText}</td></tr>`);
     }
     const end = addDays(ws, 6);
-    return `<details class="task-week"${ws === current ? ' open' : ''}>
+    return `<details class="task-week"${week || ws === current ? ' open' : ''}>
       <summary>${md(ws < START ? START : ws)} – ${md(end > T ? T : end)} · 完成 ${count} 天 / 每周目标 5 天</summary>
       ${weekly.rw.length || weekly.math.length ? `<div class="task-averages"><small>完成日汇总 · 正确率 / 日均用时 / 平均每题用时</small>${weeklySectionHTML(weekly.rw, '阅读与写作')}${weeklySectionHTML(weekly.math, '数学')}</div>` : ''}
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>任务完成情况</th><th>阅读与写作 · 正确率 / 用时 / 每题</th><th>数学 · 正确率 / 用时 / 每题</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>

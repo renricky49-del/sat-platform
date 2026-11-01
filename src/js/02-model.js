@@ -125,6 +125,8 @@ function makeups(T) {
   return PLAN.filter((p) => {
     const r = runOf(p.id);
     if (r && (r.doneAt || (!r.makeup && r.startedOn === T))) return false;
+    const dates = r ? [r.startedOn] : p.dates;
+    if (dates.some((d) => Store.get('attendance', d)?.status === 'done' && planOfDate(d)?.id === p.id)) return false;
     return p.dates[p.dates.length - 1] < T;
   });
 }
@@ -304,17 +306,28 @@ function todayStatus(T = todayStr()) {
   const run = p ? runOf(p.id) : null;
   const rev = Store.get('reviews', T);
   const dueN = rev ? rev.sections.rw.qids.length + rev.sections.math.qids.length : dueWrong(T).length;
-  const planDone = !p || !!(run && run.doneAt);
+  const report = Store.get('attendance', T);
+  const reportedDone = report?.status === 'done';
+  const planDone = !p || !!run?.doneAt || reportedDone;
   const revDone = rev ? !!rev.doneAt : dueN === 0;
-  return { T, p, run, rev, dueN, planDone, revDone, allDone: planDone && revDone, hasTasks: !!p || dueN > 0 };
+  return { T, p, run, rev, report, dueN, planDone, revDone, allDone: planDone && revDone, hasTasks: !!p || dueN > 0 || reportedDone };
+}
+// 补发的是单日完成奖差额。同日关卡后来结算时，原奖励自动抵扣补发额度。
+function completionCredit(date, runs) {
+  const credit = Store.get('completionCredits', date);
+  if (!credit || Store.get('attendance', date)?.status === 'missed') return 0;
+  const alreadyPaid = sum(runs.filter((r) => r.startedOn === date), (r) => r.coins?.done);
+  return Math.max(0, credit.coins - alreadyPaid);
 }
 function coinsEarned(before) {
   const runs = Store.all('runs').filter((r) => !before || r.startedOn < before);
   const revs = Store.all('reviews').filter((r) => !before || r.date < before);
-  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0);
+  const credits = Store.all('completionCredits').filter((c) => !before || c.date < before);
+  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs));
 }
 function coinsOnDate(d) {
-  return sum(Store.all('runs').filter((r) => r.startedOn === d), runCoins) + ((Store.get('reviews', d) || {}).coin || 0);
+  const runs = Store.all('runs').filter((r) => r.startedOn === d);
+  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs);
 }
 function coinsRedeemed() { return sum(ledger().items.filter((i) => i.status === 'done'), (i) => i.coins); }
 function coinsPending() { return sum(ledger().items.filter((i) => i.status === 'pending'), (i) => i.coins); }
@@ -333,8 +346,8 @@ function weekReport(ws) {
   }
   const revQ = sum(revs, (r) => (r.sections.rw.status === 'done' ? r.sections.rw.total : 0) + (r.sections.math.status === 'done' ? r.sections.math.total : 0));
   const revC = sum(revs, (r) => (r.sections.rw.correct || 0) + (r.sections.math.correct || 0));
-  const coins = sum(runs, runCoins) + sum(revs, (r) => r.coin || 0);
-  const before = coinsEarned(ws), after = before + coins;
+  const before = coinsEarned(ws), after = coinsEarned(addDays(we, 1));
+  const coins = after - before;
   const avg = (a) => (a.length ? sum(a) / a.length : null);
   return {
     ws, we, runs, revs, coins, before, after,
