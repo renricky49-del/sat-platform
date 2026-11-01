@@ -210,7 +210,7 @@ function questCard(s) {
   return `<div class="card quest ${s.allDone && s.hasTasks ? 'cleared' : ''}">
     <div class="quest-head"><div><h1>${title}</h1><p class="muted">${sub}</p></div>
       <div class="quest-date"><span>${md(T)}</span><b>${WD[dow(T)]}</b></div></div>
-    ${s.report?.status === 'missed' ? '<p class="muted">今日补录状态 · 未完成</p>' : ''}
+    ${s.report?.status === 'missed' ? '<p class="muted">今日任务 · 未完成</p>' : ''}
     ${chips}
     <div class="quest-cta">${cta}${extra}</div>
   </div>`;
@@ -246,8 +246,10 @@ function weekMapHTML(T) {
       if (rev && rev.doneAt && !rev.empty) state = 'clear';
     } else { label = '巩固'; state = 'future'; }
     const reported = d <= T && Store.get('attendance', d)?.status;
-    if (reported === 'done') { label = '补录完成'; state = 'clear'; }
-    if (reported === 'missed') { label = '未完成'; state = 'miss'; }
+    if (reported === 'done') state = 'clear';
+    if (reported === 'missed') state = 'miss';
+    if (state === 'clear') label = '已完成';
+    if (state === 'miss') label = '未完成';
     const c = coinsOnDate(d);
     nodes.push(`<li class="wm-node ${state}">
       <div class="wm-dot">${state === 'clear' ? '★' : state === 'miss' ? '!' : i + 1}</div>

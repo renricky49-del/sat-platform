@@ -1963,7 +1963,7 @@ function questCard(s) {
   return `<div class="card quest ${s.allDone && s.hasTasks ? 'cleared' : ''}">
     <div class="quest-head"><div><h1>${title}</h1><p class="muted">${sub}</p></div>
       <div class="quest-date"><span>${md(T)}</span><b>${WD[dow(T)]}</b></div></div>
-    ${s.report?.status === 'missed' ? '<p class="muted">今日补录状态 · 未完成</p>' : ''}
+    ${s.report?.status === 'missed' ? '<p class="muted">今日任务 · 未完成</p>' : ''}
     ${chips}
     <div class="quest-cta">${cta}${extra}</div>
   </div>`;
@@ -1999,8 +1999,10 @@ function weekMapHTML(T) {
       if (rev && rev.doneAt && !rev.empty) state = 'clear';
     } else { label = '巩固'; state = 'future'; }
     const reported = d <= T && Store.get('attendance', d)?.status;
-    if (reported === 'done') { label = '补录完成'; state = 'clear'; }
-    if (reported === 'missed') { label = '未完成'; state = 'miss'; }
+    if (reported === 'done') state = 'clear';
+    if (reported === 'missed') state = 'miss';
+    if (state === 'clear') label = '已完成';
+    if (state === 'miss') label = '未完成';
     const c = coinsOnDate(d);
     nodes.push(`<li class="wm-node ${state}">
       <div class="wm-dot">${state === 'clear' ? '★' : state === 'miss' ? '!' : i + 1}</div>
@@ -2442,7 +2444,7 @@ VIEWS.records = () => {
   const runHTML = runs.map((r) => {
     const p = PLAN.find((x) => x.id === r.dayId);
     const reported = Store.get('attendance', r.startedOn)?.status;
-    const status = reported === 'missed' ? '当日未完成' : r.doneAt ? '完成' : reported === 'done' ? '当日补录完成' : '';
+    const status = reported === 'missed' ? '未完成' : (r.doneAt || reported === 'done') ? '已完成' : '';
     const rows = dayStages(r).map((x) => `<tr class="${x.st.status === 'done' ? 'clickable' : ''}" data-run="${r.dayId}" data-sec="${x.sec}" data-idx="${x.idx}">
       <td><span class="badge ${x.sec}">${SEC_NAME[x.sec]}</span> ${esc(typeName(x.st.type))}</td>
       <td>${x.st.status === 'done' ? `${x.st.correct}/${x.st.total}（${pct(x.st.correct, x.st.total)}%）` : x.st.status === 'active' ? '进行中' : '未开始'}</td>
@@ -2705,15 +2707,11 @@ function dailyTasksHTML(week) {
       const plan = planOfDate(d);
       const runDone = dayRuns.some((r) => r.doneAt);
       const reviewDone = review && !review.empty && review.doneAt;
-      let status, done = false;
-      if (report && report.status === 'missed') {
-        status = '未完成 · 本人补录';
-        if (runDone) status += dayRuns.some((r) => r.doneAt && !r.external) ? '（另有站内完成记录）' : '（另有站外完成记录）';
-      } else if (runDone) {
-        done = true;
-        status = dayRuns.some((r) => r.doneAt && !r.external) ? '已完成 · 站内记录' : '已完成 · 站外记录';
-      } else if (report && report.status === 'done') { done = true; status = '已完成 · 本人补录'; }
-      else if (reviewDone && !plan && !dayRuns.length) { done = true; status = '已完成 · 错题巩固'; }
+      const missed = report?.status === 'missed';
+      const done = !missed && (runDone || report?.status === 'done' || (reviewDone && !plan && !dayRuns.length));
+      let status;
+      if (missed) status = '未完成';
+      else if (done) status = '已完成';
       else if (dayRuns.length || (review && !review.empty)) status = '进行中';
       else status = plan ? (d === T ? '待做' : '未见完成记录') : '无记录';
       if (done) count++;
