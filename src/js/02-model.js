@@ -333,26 +333,123 @@ function coinsRedeemed() { return sum(ledger().items.filter((i) => i.status === 
 function coinsPending() { return sum(ledger().items.filter((i) => i.status === 'pending'), (i) => i.coins); }
 function coinBalance() { return coinsEarned() - coinsRedeemed(); }
 
-/* ============ 周报 ============ */
-function weekReport(ws) {
-  const we = addDays(ws, 6);
-  const runs = Store.all('runs').filter((r) => r.startedOn >= ws && r.startedOn <= we);
-  const revs = Store.all('reviews').filter((r) => r.date >= ws && r.date <= we);
-  const acc = { rw: [0, 0], math: [0, 0] }, times = { rw: [], math: [] };
-  for (const r of runs) for (const sec of ['rw', 'math']) {
-    const S = r.sections[sec];
-    for (const st of S.stages) if (st.status === 'done') { acc[sec][0] += st.correct; acc[sec][1] += st.total; }
-    if (S.doneAt) times[sec].push(S.usedMs);
+/* ============ 每日成绩与周报 ============ */
+function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
+  const measured = { n: 0, c: 0, ms: 0 }, missing = [];
+  const planKey = sec === 'rw' ? 'reading' : 'math';
+  let partial = false;
+  for (const run of dayRuns.length ? dayRuns : [null]) {
+    const section = run && !run.external && run.sections[sec];
+    const stages = section?.stages || [];
+    const scored = stages.filter((st) => st.status === 'done' && st.total > 0);
+    measured.n += sum(scored, (st) => st.total);
+    measured.c += sum(scored, (st) => st.correct);
+    const ms = section?.doneAt ? section.usedMs : sum(scored, (st) => st.timeMs);
+    measured.ms += ms;
+    if (scored.length && section.doneAt) continue;
+    partial = true;
+    if (!estimate) continue;
+    const plan = run ? PLAN.find((p) => p.id === run.dayId) : dayPlan;
+    const remaining = stages.length
+      ? stages.filter((st) => st.status !== 'done').map((st) => ({ type: st.type, n: st.total }))
+      : plan?.[planKey]?.map((st) => ({ type: st.type, n: st.qids.length }));
+    if (!remaining || remaining.length) missing.push({ remaining, budget: Math.max(0, (section?.limitMs ?? SEC_LIMIT[sec]) - ms) });
   }
-  const revQ = sum(revs, (r) => (r.sections.rw.status === 'done' ? r.sections.rw.total : 0) + (r.sections.math.status === 'done' ? r.sections.math.total : 0));
-  const revC = sum(revs, (r) => (r.sections.rw.correct || 0) + (r.sections.math.correct || 0));
+  const actual = { ...measured, partial };
+  if (!missing.length) return measured.n ? actual : null;
+
+  // 完整实测参与加权。无更早记录时，只用首个有实测的七天窗口回推。
+  const samples = runs.filter((r) => !r.external && r.sections[sec].doneAt && r.sections[sec].usedMs > 0
+    && r.sections[sec].stages.some((st) => st.status === 'done' && st.total > 0));
+  let reference = samples.filter((r) => r.startedOn < date);
+  const backcast = !reference.length;
+  if (backcast) {
+    const first = samples.map((r) => r.startedOn).filter((d) => d > date).sort()[0];
+    if (first) {
+      const end = addDays(first, 7);
+      reference = samples.filter((r) => r.startedOn >= first && r.startedOn < end);
+    }
+  }
+  if (!reference.length) return measured.n ? actual : null;
+
+  // 日期相隔七天时权重减半。周计划中相同星期几的实测权重加倍。
+  const weekday = dow(date);
+  const sections = reference.map((r) => {
+    const distance = Math.abs(diffDays(r.startedOn, date));
+    const weight = (dow(r.startedOn) === weekday ? 2 : 1) / (1 + distance / 7);
+    return { section: r.sections[sec], weight };
+  });
+  const pool = sections.flatMap(({ section, weight }) => section.stages
+    .filter((st) => st.status === 'done' && st.total > 0)
+    .map((st) => ({ type: st.type, total: st.total * weight, correct: st.correct * weight, timeMs: st.timeMs * weight })));
+  const total = sum(pool, (st) => st.total);
+  const subjectRate = sum(pool, (st) => st.correct) / total;
+  const subjectPace = sum(sections, (s) => s.section.usedMs * s.weight) / total;
+  const meanQuestions = total / sum(sections, (s) => s.weight);
+  const result = { ...measured, estimated: true, backcast, measured: measured.n ? measured : null };
+  for (const { remaining, budget } of missing) {
+    let estimatedMs = 0;
+    for (const group of remaining ?? [{ n: meanQuestions }]) {
+      const same = group.type ? pool.filter((st) => st.type === group.type) : [];
+      const n = sum(same, (st) => st.total);
+      const rate = n ? sum(same, (st) => st.correct) / n : subjectRate;
+      const pace = n && same.every((st) => st.timeMs > 0) ? sum(same, (st) => st.timeMs) / n : subjectPace;
+      result.n += group.n;
+      result.c += rate * group.n;
+      estimatedMs += pace * group.n;
+    }
+    result.ms += Math.min(budget, estimatedMs);
+  }
+  return result;
+}
+function dailyTaskData(ws) {
+  const T = todayStr(), runs = Store.all('runs').filter((r) => r.startedOn <= T), days = [];
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(ws, i);
+    if (date < START || date > T) continue;
+    const report = Store.get('attendance', date), review = Store.get('reviews', date);
+    const dayRuns = runs.filter((r) => r.startedOn === date), plan = planOfDate(date);
+    const runDone = dayRuns.some((r) => r.doneAt);
+    const reviewDone = !!(review && !review.empty && review.doneAt);
+    const missed = report?.status === 'missed';
+    const done = !missed && (runDone || report?.status === 'done' || (reviewDone && !plan && !dayRuns.length));
+    const status = missed ? '未完成' : done ? '已完成'
+      : dayRuns.length || (review && !review.empty) ? '进行中'
+      : plan ? (date === T ? '待做' : '未见完成记录') : '无记录';
+    const estimate = done && (runDone || report?.status === 'done');
+    days.push({
+      date, done, status, missed, review, reviewDone, dayRuns,
+      rw: dailySectionMetrics(date, 'rw', runs, dayRuns, plan, estimate),
+      math: dailySectionMetrics(date, 'math', runs, dayRuns, plan, estimate),
+    });
+  }
+  return days;
+}
+
+function completedSectionTotal(days, sec) {
+  const metrics = days.filter((d) => d.done && d[sec]).map((d) => d[sec]);
+  return {
+    n: sum(metrics, (m) => m.n), c: sum(metrics, (m) => m.c), ms: sum(metrics, (m) => m.ms),
+    days: metrics.length, estimated: metrics.some((m) => m.estimated),
+  };
+}
+
+function weekReport(ws) {
+  const we = addDays(ws, 6), T = todayStr(), end = we < T ? we : T;
+  const runs = Store.all('runs').filter((r) => r.startedOn >= ws && r.startedOn <= end);
+  const revs = Store.all('reviews').filter((r) => r.date >= ws && r.date <= end && !r.empty);
+  const daily = dailyTaskData(ws);
+  const rw = completedSectionTotal(daily, 'rw'), math = completedSectionTotal(daily, 'math');
+  const reviewSections = revs.flatMap((r) => [r.sections.rw, r.sections.math]).filter((s) => s.status === 'done');
+  const revQ = sum(reviewSections, (s) => s.total), revC = sum(reviewSections, (s) => s.correct);
   const before = coinsEarned(ws), after = coinsEarned(addDays(we, 1));
   const coins = after - before;
-  const avg = (a) => (a.length ? sum(a) / a.length : null);
   return {
     ws, we, runs, revs, coins, before, after,
-    rwAcc: acc.rw, mathAcc: acc.math, rwAvg: avg(times.rw), mathAvg: avg(times.math),
-    daysDone: runs.filter((r) => r.doneAt).length, reviewsDone: revs.filter((r) => r.doneAt && !r.empty).length,
+    rwAcc: [rw.c, rw.n], mathAcc: [math.c, math.n],
+    rwAvg: rw.days ? rw.ms / rw.days : null, mathAvg: math.days ? math.ms / math.days : null,
+    rwDays: rw.days, mathDays: math.days, rwEstimated: rw.estimated, mathEstimated: math.estimated,
+    daysDone: daily.filter((d) => d.done).length, reviewsDone: revs.filter((r) => r.doneAt).length,
     revQ, revC, levelStart: levelOf(before), levelEnd: levelOf(after),
     unlocked: allUnlocks().filter((u) => u.at > before && u.at <= after),
   };

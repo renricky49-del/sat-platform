@@ -259,86 +259,17 @@ function allWeekStarts() {
 VIEWS.weekly = () => {
   const weeks = allWeekStarts();
   mount(`${dailyTasksHTML()}
-    <section class="card"><div class="sec-head"><h1>周报</h1><span class="muted">原始练习统计与每周金币</span></div>
+    <section class="card"><div class="sec-head"><h1>周报</h1><span class="muted">完成日成绩与每周金币</span></div>
     ${weeks.map((ws) => weekCardHTML(weekReport(ws), { recorded: true })).join('')}</section>`, 'weekly');
 };
 
 /* ============ 每日任务记录（三个角色共用） ============ */
-function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
-  const measured = { n: 0, c: 0, ms: 0 }, missing = [];
-  const planKey = sec === 'rw' ? 'reading' : 'math';
-  let partial = false;
-  for (const run of dayRuns.length ? dayRuns : [null]) {
-    const section = run && !run.external && run.sections[sec];
-    const stages = section?.stages || [];
-    const scored = stages.filter((st) => st.status === 'done' && st.total > 0);
-    measured.n += sum(scored, (st) => st.total);
-    measured.c += sum(scored, (st) => st.correct);
-    const ms = section?.doneAt ? section.usedMs : sum(scored, (st) => st.timeMs);
-    measured.ms += ms;
-    if (scored.length && section.doneAt) continue;
-    partial = true;
-    if (!estimate) continue;
-    const plan = run ? PLAN.find((p) => p.id === run.dayId) : dayPlan;
-    const remaining = stages.length
-      ? stages.filter((st) => st.status !== 'done').map((st) => ({ type: st.type, n: st.total }))
-      : plan?.[planKey]?.map((st) => ({ type: st.type, n: st.qids.length }));
-    if (!remaining || remaining.length) missing.push({ remaining, budget: Math.max(0, (section?.limitMs ?? SEC_LIMIT[sec]) - ms) });
-  }
-  const actual = { ...measured, partial };
-  if (!missing.length) return measured.n ? actual : null;
-
-  // 完整实测参与加权。无更早记录时，只用首个有实测的七天窗口回推。
-  const samples = runs.filter((r) => !r.external && r.sections[sec].doneAt && r.sections[sec].usedMs > 0
-    && r.sections[sec].stages.some((st) => st.status === 'done' && st.total > 0));
-  let reference = samples.filter((r) => r.startedOn < date);
-  const backcast = !reference.length;
-  if (backcast) {
-    const first = samples.map((r) => r.startedOn).filter((d) => d > date).sort()[0];
-    if (first) {
-      const end = addDays(first, 7);
-      reference = samples.filter((r) => r.startedOn >= first && r.startedOn < end);
-    }
-  }
-  if (!reference.length) return measured.n ? actual : null;
-
-  // 日期相隔七天时权重减半。周计划中相同星期几的实测权重加倍。
-  const weekday = dow(date);
-  const sections = reference.map((r) => {
-    const distance = Math.abs(diffDays(r.startedOn, date));
-    const weight = (dow(r.startedOn) === weekday ? 2 : 1) / (1 + distance / 7);
-    return { section: r.sections[sec], weight };
-  });
-  const pool = sections.flatMap(({ section, weight }) => section.stages
-    .filter((st) => st.status === 'done' && st.total > 0)
-    .map((st) => ({ type: st.type, total: st.total * weight, correct: st.correct * weight, timeMs: st.timeMs * weight })));
-  const total = sum(pool, (st) => st.total);
-  const subjectRate = sum(pool, (st) => st.correct) / total;
-  const subjectPace = sum(sections, (s) => s.section.usedMs * s.weight) / total;
-  const meanQuestions = total / sum(sections, (s) => s.weight);
-  const result = { ...measured, estimated: true, backcast, measured: measured.n ? measured : null };
-  for (const { remaining, budget } of missing) {
-    let estimatedMs = 0;
-    for (const group of remaining ?? [{ n: meanQuestions }]) {
-      const same = group.type ? pool.filter((st) => st.type === group.type) : [];
-      const n = sum(same, (st) => st.total);
-      const rate = n ? sum(same, (st) => st.correct) / n : subjectRate;
-      const pace = n && same.every((st) => st.timeMs > 0) ? sum(same, (st) => st.timeMs) / n : subjectPace;
-      result.n += group.n;
-      result.c += rate * group.n;
-      estimatedMs += pace * group.n;
-    }
-    result.ms += Math.min(budget, estimatedMs);
-  }
-  return result;
-}
-
 function performanceText(m, days = 1) {
   return `${(100 * m.c / m.n).toFixed(2)}% · ${fmtDur(m.ms / days)} · ${(m.ms / m.n / 1000).toFixed(2)} 秒/题`;
 }
 
-function dailySectionHTML(m) {
-  if (!m) return '—';
+function dailySectionHTML(m, emptyText = '暂无成绩') {
+  if (!m) return `<span class="muted">${emptyText}</span>`;
   const measured = m.measured;
   const detail = measured ? `<br><small>其中实测 ${measured.c}/${measured.n} · ${performanceText(measured)}</small>` : '';
   const note = m.partial ? '<small>已记录部分</small><br>' : '';
@@ -346,55 +277,34 @@ function dailySectionHTML(m) {
   return `${note}${mark}${performanceText(m)}${detail}`;
 }
 
-function weeklySectionHTML(days, name) {
-  if (!days.length) return '';
-  const total = { n: sum(days, (m) => m.n), c: sum(days, (m) => m.c), ms: sum(days, (m) => m.ms) };
-  const mark = days.some((m) => m.estimated) ? '≈ ' : '';
-  return `<div><b>${name}</b> · ${mark}${performanceText(total, days.length)}</div>`;
+function weeklySectionHTML(total, name) {
+  if (!total.days) return `<div><b>${name}</b> · 暂无完成日成绩</div>`;
+  const mark = total.estimated ? '≈ ' : '';
+  return `<div><b>${name}</b> · ${mark}${performanceText(total, total.days)}</div>`;
 }
 
 function dailyTasksHTML(week) {
-  const T = todayStr(), current = weekStart(T), runs = Store.all('runs').filter((r) => r.startedOn <= T);
+  const T = todayStr(), current = weekStart(T);
   const weeks = week ? [week] : allWeekStarts();
   const blocks = weeks.filter((ws) => ws <= current).map((ws) => {
-    let count = 0;
-    const rows = [], weekly = { rw: [], math: [] };
-    for (let i = 0; i < 7; i++) {
-      const d = addDays(ws, i);
-      if (d < START || d > T) continue;
-      const report = Store.get('attendance', d);
-      const dayRuns = runs.filter((r) => r.startedOn === d);
-      const review = Store.get('reviews', d);
-      const plan = planOfDate(d);
-      const runDone = dayRuns.some((r) => r.doneAt);
-      const reviewDone = review && !review.empty && review.doneAt;
-      const missed = report?.status === 'missed';
-      const done = !missed && (runDone || report?.status === 'done' || (reviewDone && !plan && !dayRuns.length));
-      let status;
-      if (missed) status = '未完成';
-      else if (done) status = '已完成';
-      else if (dayRuns.length || (review && !review.empty)) status = '进行中';
-      else status = plan ? (d === T ? '待做' : '未见完成记录') : '无记录';
-      if (done) count++;
-      const estimated = done && (runDone || report?.status === 'done');
-      const rw = dailySectionMetrics(d, 'rw', runs, dayRuns, plan, estimated);
-      const math = dailySectionMetrics(d, 'math', runs, dayRuns, plan, estimated);
-      if (done && rw) weekly.rw.push(rw);
-      if (done && math) weekly.math.push(math);
-      const reviewText = !review || review.empty ? '—' : reviewDone
+    const days = dailyTaskData(ws), count = days.filter((d) => d.done).length;
+    const rwTotal = completedSectionTotal(days, 'rw'), mathTotal = completedSectionTotal(days, 'math');
+    const rows = days.map(({ date: d, status, missed, dayRuns, review, reviewDone, rw, math }) => {
+      const reviewText = !review ? '未记录' : review.empty ? '无需巩固' : reviewDone
         ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
         : '未完成';
       const coins = coinsOnDate(d), credit = completionCredit(d, dayRuns);
-      const coinText = credit ? `${coins}<br><small>含补发 ${credit}</small>` : coins || '—';
-      rows.push(`<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
-        <td>${status}</td><td>${dailySectionHTML(rw)}</td>
-        <td>${dailySectionHTML(math)}</td><td>${reviewText}</td><td>${coinText}</td></tr>`);
-    }
+      const coinText = credit ? `${coins}<br><small>含补发 ${credit}</small>` : coins;
+      const emptyText = missed ? '未完成，无成绩' : '暂无成绩';
+      return `<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
+        <td>${status}</td><td>${dailySectionHTML(rw, emptyText)}</td>
+        <td>${dailySectionHTML(math, emptyText)}</td><td>${reviewText}</td><td>${coinText}</td></tr>`;
+    });
     const end = addDays(ws, 6);
     return `<details class="task-week"${week || ws === current ? ' open' : ''}>
       <summary>${md(ws < START ? START : ws)} – ${md(end > T ? T : end)} · 完成 ${count} 天 / 每周目标 5 天</summary>
-      ${weekly.rw.length || weekly.math.length ? `<div class="task-averages"><small>完成日汇总 · 正确率 / 日均用时 / 平均每题用时</small>${weeklySectionHTML(weekly.rw, '阅读与写作')}${weeklySectionHTML(weekly.math, '数学')}</div>` : ''}
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>任务完成情况</th><th>阅读与写作 · 正确率 / 用时 / 每题</th><th>数学 · 正确率 / 用时 / 每题</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
+      <div class="task-averages"><small>完成日汇总 · 正确率 / 日均用时 / 平均每题用时</small>${weeklySectionHTML(rwTotal, '阅读与写作')}${weeklySectionHTML(mathTotal, '数学')}</div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>日期</th><th>练习完成情况</th><th>阅读与写作 · 正确率 / 用时 / 每题</th><th>数学 · 正确率 / 用时 / 每题</th><th>错题巩固</th><th>金币</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>
     </details>`;
   });
   return `<section class="card daily-tasks"><div class="sec-head"><h2>每日任务完成情况</h2><span class="muted">截至 ${mdw(T)} · 美西时间</span></div>
@@ -410,7 +320,7 @@ VIEWS.parent = () => {
     <section class="card"><div class="sec-head"><h1>家长视图</h1><button class="btn small ghost" id="refresh">刷新数据</button></div>
     </section>
     ${dailyTasksHTML()}
-    <section class="card"><div class="sec-head"><h2>本周练习记录统计</h2></div>${weekCardHTML(weekReport(ws), { recorded: true })}</section>
+    <section class="card"><div class="sec-head"><h2>本周完成情况汇总</h2></div>${weekCardHTML(weekReport(ws))}</section>
     ${redeemHTML(false)}
     ${past.length ? `<section class="card"><div class="sec-head"><h2>往期周报</h2></div>${past.map((w) => weekCardHTML(weekReport(w), { pet: false, recorded: true })).join('')}</section>` : ''}`, 'parent');
   bindRefresh();

@@ -250,15 +250,26 @@ function showSettlement(T) {
 function weekCardHTML(rep, opts = {}) {
   const lvUp = rep.levelEnd > rep.levelStart;
   const live = todayStr() <= rep.we;
+  const mark = (sec) => rep[sec + 'Estimated'] ? '≈ ' : '';
+  const accuracy = (sec) => {
+    const [correct, total] = rep[sec + 'Acc'];
+    return total ? `${mark(sec)}${(100 * correct / total).toFixed(2)}%` : '暂无成绩';
+  };
+  const coverage = (sec) => {
+    const [correct, total] = rep[sec + 'Acc'];
+    if (!total) return '尚无完成日成绩';
+    return rep[sec + 'Estimated'] ? `汇总 ${rep[sec + 'Days']} 个完成日 · 含推算值` : `答对 ${correct}/${total} 题`;
+  };
+  const duration = (sec) => rep[sec + 'Avg'] != null ? mark(sec) + fmtDur(rep[sec + 'Avg']) : '暂无用时';
   return `<div class="week-card">
-    <div class="wk-head"><h3>${md(rep.ws)} – ${md(rep.we)}${live ? '<span class="live">进行中</span>' : ''}</h3><span class="muted">${opts.recorded ? `已有新题完成记录 ${rep.daysDone} 组` : `完成新题 ${rep.daysDone} 天`} · 错题巩固 ${rep.reviewsDone} 天</span></div>
+    <div class="wk-head"><h3>${md(rep.ws < START ? START : rep.ws)} – ${md(rep.we)}${live ? '<span class="live">进行中</span>' : ''}</h3><span class="muted">练习完成 ${rep.daysDone} 天 · 已记录错题巩固 ${rep.reviewsDone} 天</span></div>
     <div class="wk-grid">
-      <div><span>阅读总正确率</span><b>${rep.rwAcc[1] ? pct(rep.rwAcc[0], rep.rwAcc[1]) + '%' : '—'}</b><small>${rep.rwAcc[0]}/${rep.rwAcc[1]} 题</small></div>
-      <div><span>数学总正确率</span><b>${rep.mathAcc[1] ? pct(rep.mathAcc[0], rep.mathAcc[1]) + '%' : '—'}</b><small>${rep.mathAcc[0]}/${rep.mathAcc[1]} 题</small></div>
-      <div><span>阅读平均用时</span><b>${rep.rwAvg != null ? fmtClock(rep.rwAvg) : '—'}</b><small>每天整个阅读部分</small></div>
-      <div><span>数学平均用时</span><b>${rep.mathAvg != null ? fmtClock(rep.mathAvg) : '—'}</b><small>每天整个数学部分</small></div>
+      <div><span>阅读总正确率</span><b>${accuracy('rw')}</b><small>${coverage('rw')}</small></div>
+      <div><span>数学总正确率</span><b>${accuracy('math')}</b><small>${coverage('math')}</small></div>
+      <div><span>阅读平均用时</span><b>${duration('rw')}</b><small>${rep.rwDays} 个有成绩的完成日</small></div>
+      <div><span>数学平均用时</span><b>${duration('math')}</b><small>${rep.mathDays} 个有成绩的完成日</small></div>
       <div><span>本周金币</span><b class="coin-txt">+${rep.coins}</b><small>= ${rep.coins} 美元</small></div>
-      <div><span>错题巩固</span><b>${rep.revQ ? pct(rep.revC, rep.revQ) + '%' : '—'}</b><small>${rep.revC}/${rep.revQ} 题答对</small></div>
+      <div><span>错题巩固</span><b>${rep.revQ ? (100 * rep.revC / rep.revQ).toFixed(2) + '%' : rep.reviewsDone + ' 天'}</b><small>${rep.revQ ? `${rep.revC}/${rep.revQ} 题答对` : rep.reviewsDone ? '已完成，暂无逐题成绩' : '尚无已完成记录'}</small></div>
     </div>
     <div class="wk-pet">${opts.pet !== false ? petHTML({ cat: activePet(rep.after).cat, wear: activePet(rep.after).wear, h: 72, mode: lvUp ? 'party' : 'idle' }) : ''}
       <div><b>萌宠升级：</b>${lvUp ? `Lv ${rep.levelStart} → <b>Lv ${rep.levelEnd}</b>` : `保持 Lv ${rep.levelEnd}`}
@@ -270,6 +281,6 @@ function weekCardHTML(rep, opts = {}) {
 function showWeekly(ws) {
   const rep = weekReport(ws);
   const m = modal(`<div class="weekly-modal"><div class="kicker">每周结算</div><h2 class="settle-title">本周周报</h2>${dailyTasksHTML(ws)}${weekCardHTML(rep, { recorded: true })}<button class="btn primary big" id="wkOk">下周继续加油</button></div>`, { cls: 'wide' });
-  if (Store.canWrite && ROLE === 'student') Store.put('weekly', ws, { ws, seenAt: Date.now(), coins: rep.coins, rwAcc: rep.rwAcc, mathAcc: rep.mathAcc, rwAvg: rep.rwAvg, mathAvg: rep.mathAvg, levelStart: rep.levelStart, levelEnd: rep.levelEnd });
+  if (Store.canWrite && ROLE === 'student') Store.put('weekly', ws, { ws, seenAt: Date.now(), coins: rep.coins, rwAcc: rep.rwAcc, mathAcc: rep.mathAcc, rwAvg: rep.rwAvg, mathAvg: rep.mathAvg, rwEstimated: rep.rwEstimated, mathEstimated: rep.mathEstimated, rwDays: rep.rwDays, mathDays: rep.mathDays, daysDone: rep.daysDone, levelStart: rep.levelStart, levelEnd: rep.levelEnd });
   m.el.querySelector('#wkOk').onclick = () => { m.close(); if (VIEW.name === 'home') go('home'); };
 }
