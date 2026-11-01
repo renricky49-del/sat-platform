@@ -2639,28 +2639,41 @@ function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
       : plan?.[planKey]?.map((st) => ({ type: st.type, n: st.qids.length }));
     if (!remaining || remaining.length) missing.push({ remaining, budget: Math.max(0, (section?.limitMs ?? SEC_LIMIT[sec]) - ms) });
   }
-  const actual = { ...measured, label: partial ? '已记录部分' : '实测' };
+  const actual = { ...measured, partial };
   if (!missing.length) return measured.n ? actual : null;
 
-  // 只用站内完整实测作基线。早于首次实测的补录使用最近一次后续实测，并在页面单独标注。
+  // 完整实测参与加权。无更早记录时，只用首个有实测的七天窗口回推。
   const samples = runs.filter((r) => !r.external && r.sections[sec].doneAt && r.sections[sec].usedMs > 0
     && r.sections[sec].stages.some((st) => st.status === 'done' && st.total > 0));
   let reference = samples.filter((r) => r.startedOn < date);
   const backcast = !reference.length;
   if (backcast) {
     const first = samples.map((r) => r.startedOn).filter((d) => d > date).sort()[0];
-    reference = samples.filter((r) => r.startedOn === first);
+    if (first) {
+      const end = addDays(first, 7);
+      reference = samples.filter((r) => r.startedOn >= first && r.startedOn < end);
+    }
   }
   if (!reference.length) return measured.n ? actual : null;
-  const sections = reference.map((r) => r.sections[sec]);
-  const pool = sections.flatMap((s) => s.stages).filter((st) => st.status === 'done' && st.total > 0);
+
+  // 日期相隔七天时权重减半。周计划中相同星期几的实测权重加倍。
+  const weekday = dow(date);
+  const sections = reference.map((r) => {
+    const distance = Math.abs(diffDays(r.startedOn, date));
+    const weight = (dow(r.startedOn) === weekday ? 2 : 1) / (1 + distance / 7);
+    return { section: r.sections[sec], weight };
+  });
+  const pool = sections.flatMap(({ section, weight }) => section.stages
+    .filter((st) => st.status === 'done' && st.total > 0)
+    .map((st) => ({ type: st.type, total: st.total * weight, correct: st.correct * weight, timeMs: st.timeMs * weight })));
   const total = sum(pool, (st) => st.total);
   const subjectRate = sum(pool, (st) => st.correct) / total;
-  const subjectPace = sum(sections, (s) => s.usedMs) / total;
-  const result = { ...measured, label: backcast ? '回推估算' : '历史估算', measured: measured.n ? measured : null };
+  const subjectPace = sum(sections, (s) => s.section.usedMs * s.weight) / total;
+  const meanQuestions = total / sum(sections, (s) => s.weight);
+  const result = { ...measured, estimated: true, backcast, measured: measured.n ? measured : null };
   for (const { remaining, budget } of missing) {
     let estimatedMs = 0;
-    for (const group of remaining ?? [{ n: total / sections.length }]) {
+    for (const group of remaining ?? [{ n: meanQuestions }]) {
       const same = group.type ? pool.filter((st) => st.type === group.type) : [];
       const n = sum(same, (st) => st.total);
       const rate = n ? sum(same, (st) => st.correct) / n : subjectRate;
@@ -2682,14 +2695,16 @@ function dailySectionHTML(m) {
   if (!m) return '—';
   const measured = m.measured;
   const detail = measured ? `<br><small>其中实测 ${measured.c}/${measured.n} · ${performanceText(measured)}</small>` : '';
-  return `<small>${m.label}</small><br>${performanceText(m)}${detail}`;
+  const note = m.partial ? '<small>已记录部分</small><br>' : '';
+  const mark = m.estimated ? `<abbr title="${m.backcast ? '按首周实测回推' : '按此前实测推算'}">≈</abbr> ` : '';
+  return `${note}${mark}${performanceText(m)}${detail}`;
 }
 
 function weeklySectionHTML(days, name) {
   if (!days.length) return '';
   const total = { n: sum(days, (m) => m.n), c: sum(days, (m) => m.c), ms: sum(days, (m) => m.ms) };
-  const includesEstimates = days.some((m) => m.label.includes('估算'));
-  return `<div><b>${name}</b> · ${performanceText(total, days.length)}${includesEstimates ? '（含估算）' : '（实测）'}</div>`;
+  const mark = days.some((m) => m.estimated) ? '≈ ' : '';
+  return `<div><b>${name}</b> · ${mark}${performanceText(total, days.length)}</div>`;
 }
 
 function dailyTasksHTML(week) {
@@ -2737,7 +2752,7 @@ function dailyTasksHTML(week) {
     </details>`;
   });
   return `<section class="card daily-tasks"><div class="sec-head"><h2>每日任务完成情况</h2><span class="muted">截至 ${mdw(T)} · 美西时间</span></div>
-    <p class="muted">缺少成绩时，优先按此前同题型实测均值估算，无同题型样本则取同科均值。没有当天题数时采用历史平均题量。早于首次实测的日期标为「回推估算」。</p>
+    <p class="muted">≈ 表示该组数据含推算值。优先参考同题型成绩，日期越近、星期几相同的实测权重越高。早于首次实测的日期按首周实测回推。</p>
     ${blocks.join('')}</section>`;
 }
 
