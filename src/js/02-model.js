@@ -309,7 +309,7 @@ function todayStatus(T = todayStr()) {
   const report = Store.get('attendance', T);
   const reportedDone = report?.status === 'done';
   const planDone = !p || !!run?.doneAt || reportedDone;
-  const revDone = rev ? !!rev.doneAt : dueN === 0;
+  const revDone = report?.reviewStatus === 'done' || (rev ? !!rev.doneAt : dueN === 0);
   return { T, p, run, rev, report, dueN, planDone, revDone, allDone: planDone && revDone, hasTasks: !!p || dueN > 0 || reportedDone };
 }
 // 补发的是单日完成奖差额。同日关卡后来结算时，原奖励自动抵扣补发额度。
@@ -319,15 +319,20 @@ function completionCredit(date, runs) {
   const alreadyPaid = sum(runs.filter((r) => r.startedOn === date), (r) => r.coins?.done);
   return Math.max(0, credit.coins - alreadyPaid);
 }
+function reviewCompletionCredit(date) {
+  if (Store.get('attendance', date)?.reviewStatus !== 'done') return 0;
+  const credit = Store.get('completionCredits', date)?.reviewCoins || 0;
+  return Math.max(0, credit - (Store.get('reviews', date)?.coin || 0));
+}
 function coinsEarned(before) {
   const runs = Store.all('runs').filter((r) => !before || r.startedOn < before);
   const revs = Store.all('reviews').filter((r) => !before || r.date < before);
   const credits = Store.all('completionCredits').filter((c) => !before || c.date < before);
-  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs));
+  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs) + reviewCompletionCredit(c.date));
 }
 function coinsOnDate(d) {
   const runs = Store.all('runs').filter((r) => r.startedOn === d);
-  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs);
+  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs) + reviewCompletionCredit(d);
 }
 function coinsRedeemed() { return sum(ledger().items.filter((i) => i.status === 'done'), (i) => i.coins); }
 function coinsPending() { return sum(ledger().items.filter((i) => i.status === 'pending'), (i) => i.coins); }
@@ -410,7 +415,7 @@ function dailyTaskData(ws) {
     const report = Store.get('attendance', date), review = Store.get('reviews', date);
     const dayRuns = runs.filter((r) => r.startedOn === date), plan = planOfDate(date);
     const runDone = dayRuns.some((r) => r.doneAt);
-    const reviewDone = !!(review && !review.empty && review.doneAt);
+    const reviewDone = report?.reviewStatus === 'done' || !!(review && !review.empty && review.doneAt);
     const missed = report?.status === 'missed';
     const done = !missed && (runDone || report?.status === 'done' || (reviewDone && !plan && !dayRuns.length));
     const status = missed ? '未完成' : done ? '已完成'
@@ -449,7 +454,7 @@ function weekReport(ws) {
     rwAcc: [rw.c, rw.n], mathAcc: [math.c, math.n],
     rwAvg: rw.days ? rw.ms / rw.days : null, mathAvg: math.days ? math.ms / math.days : null,
     rwDays: rw.days, mathDays: math.days, rwEstimated: rw.estimated, mathEstimated: math.estimated,
-    daysDone: daily.filter((d) => d.done).length, reviewsDone: revs.filter((r) => r.doneAt).length,
+    daysDone: daily.filter((d) => d.done).length, reviewsDone: daily.filter((d) => d.reviewDone).length,
     revQ, revC, levelStart: levelOf(before), levelEnd: levelOf(after),
     unlocked: allUnlocks().filter((u) => u.at > before && u.at <= after),
   };

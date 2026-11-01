@@ -85,7 +85,10 @@ VIEWS.wrong = () => {
 /* ============ 练习记录 ============ */
 VIEWS.records = () => {
   const runs = Store.all('runs').sort((a, b) => (a.startedOn < b.startedOn ? 1 : -1));
-  const revs = Store.all('reviews').filter((r) => !r.empty).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const reviewDates = [...new Set([
+    ...Store.all('reviews').filter((r) => !r.empty).map((r) => r.date),
+    ...Store.all('attendance').filter((a) => a.reviewStatus === 'done').map((a) => a.date),
+  ])].sort().reverse();
   const exs = Store.all('extras').filter((e) => e.status === 'done').sort((a, b) => b.createdAt - a.createdAt);
   const runHTML = runs.map((r) => {
     const p = PLAN.find((x) => x.id === r.dayId);
@@ -103,9 +106,13 @@ VIEWS.records = () => {
       <div class="rec-foot muted">阅读部分 ${r.sections.rw.doneAt ? fmtDur(r.sections.rw.usedMs) : '未完成'} · 数学部分 ${r.sections.math.doneAt ? fmtDur(r.sections.math.usedMs) : '未完成'}</div>`}
     </div>`;
   }).join('') || '<p class="empty">还没有练习记录。</p>';
-  const revHTML = revs.map((r) => `<li><b>${mdw(r.date)}</b>
-      ${['rw', 'math'].map((sec) => { const S = r.sections[sec]; return S.qids.length ? `<button class="lnk rv-open" data-d="${r.date}" data-sec="${sec}">${SEC_NAME[sec]} ${S.status === 'done' ? `${S.correct}/${S.total}` : '未完成'}</button>` : ''; }).join(' · ')}
-      ${r.coin ? `<span class="rec-coin"><i class="coin sm"></i>+${r.coin}</span>` : ''}</li>`).join('') || '<li class="empty">还没有错题巩固记录。</li>';
+  const revHTML = reviewDates.map((date) => {
+    const r = Store.get('reviews', date), coins = (r?.coin || 0) + reviewCompletionCredit(date);
+    const confirmed = Store.get('attendance', date)?.reviewStatus === 'done';
+    const parts = ['rw', 'math'].map((sec) => { const S = r?.sections[sec]; return S?.qids.length ? `<button class="lnk rv-open" data-d="${date}" data-sec="${sec}">${SEC_NAME[sec]} ${S.status === 'done' ? `${S.correct}/${S.total}` : '未交卷'}</button>` : ''; }).filter(Boolean);
+    if (confirmed && (!r?.doneAt || r.empty)) parts.unshift('已完成，暂无完整逐题成绩');
+    return `<li><b>${mdw(date)}</b> ${parts.join(' · ')} ${coins ? `<span class="rec-coin"><i class="coin sm"></i>+${coins}</span>` : ''}</li>`;
+  }).join('') || '<li class="empty">还没有错题巩固记录。</li>';
   const exHTML = exs.map((e) => `<li><b>${mdw(e.date)}</b> ${esc(typeName(e.type))} <button class="lnk ex-open" data-id="${e.id}">${e.correct}/${e.total}</button> <span class="muted">${fmtClock(e.usedMs)}</span></li>`).join('') || '<li class="empty">还没有额外练习。</li>';
   mount(`${dailyTasksHTML()}
     <section class="card"><div class="sec-head"><h1>原始关卡记录</h1><span class="muted">点关卡查看逐题作答</span></div>${runHTML}</section>
@@ -290,10 +297,10 @@ function dailyTasksHTML(week) {
     const days = dailyTaskData(ws), count = days.filter((d) => d.done).length;
     const rwTotal = completedSectionTotal(days, 'rw'), mathTotal = completedSectionTotal(days, 'math');
     const rows = days.map(({ date: d, status, missed, dayRuns, review, reviewDone, rw, math }) => {
-      const reviewText = !review ? '未记录' : review.empty ? '无需巩固' : reviewDone
+      const reviewText = review && !review.empty && review.doneAt
         ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
-        : '未完成';
-      const coins = coinsOnDate(d), credit = completionCredit(d, dayRuns);
+        : reviewDone ? '已完成' : !review ? '未记录' : review.empty ? '无需巩固' : '未完成';
+      const coins = coinsOnDate(d), credit = completionCredit(d, dayRuns) + reviewCompletionCredit(d);
       const coinText = credit ? `${coins}<br><small>含补发 ${credit}</small>` : coins;
       const emptyText = missed ? '未完成，无成绩' : '暂无成绩';
       return `<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>

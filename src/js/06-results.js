@@ -226,7 +226,10 @@ function showSettlement(T) {
   }
   const credit = completionCredit(T, runs);
   if (credit) rows.push(['补发完成奖', credit, '已确认完成，扣除同日已发完成奖', true]);
-  rows.push(['完成错题巩固', rev ? rev.coin : 0, !rev || rev.empty ? '今天没有到期的错题' : rev.doneAt ? `答对 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}` : '还没做完', true]);
+  const reviewNote = rev && !rev.empty && rev.doneAt ? `答对 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}`
+    : Store.get('attendance', T)?.reviewStatus === 'done' ? '已完成，暂无完整逐题成绩'
+    : rev?.empty ? '今天没有到期的错题' : rev ? '还没做完' : '未记录';
+  rows.push(['完成错题巩固', (rev?.coin || 0) + reviewCompletionCredit(T), reviewNote, true]);
   const newly = allUnlocks().filter((u) => u.at > before && u.at <= after);
   const m = modal(`<div class="settle">
     <div class="settle-pet">${petHTML({ cat: ap.cat, wear: ap.wear, h: 130, mode: 'party' })}</div>
