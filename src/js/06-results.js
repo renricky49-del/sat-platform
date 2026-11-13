@@ -226,6 +226,8 @@ function showSettlement(T) {
   }
   const credit = completionCredit(T, runs);
   if (credit) rows.push(['补发完成奖', credit, '已确认完成，扣除同日已发完成奖', true]);
+  const simulated = scenarioCoinsOnDate(T);
+  if (simulated) rows.push(['推演奖励', simulated, '用户设定的情景奖励，不代表实测进步', true]);
   const reviewNote = rev && !rev.empty && rev.doneAt ? `答对 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}`
     : Store.get('attendance', T)?.reviewStatus === 'done' ? '已完成，暂无完整逐题成绩'
     : rev?.empty ? '今天没有到期的错题' : rev ? '还没做完' : '未记录';
@@ -271,7 +273,7 @@ function weekCardHTML(rep, opts = {}) {
       <div><span>数学总正确率</span><b>${accuracy('math')}</b><small>${coverage('math')}</small></div>
       <div><span>阅读平均用时</span><b>${duration('rw')}</b><small>${rep.rwDays} 个有成绩的完成日</small></div>
       <div><span>数学平均用时</span><b>${duration('math')}</b><small>${rep.mathDays} 个有成绩的完成日</small></div>
-      <div><span>本周金币</span><b class="coin-txt">+${rep.coins}</b><small>= ${rep.coins} 美元</small></div>
+      <div><span>本周金币</span><b class="coin-txt">+${rep.coins}</b><small>= ${rep.coins} 美元</small>${scenarioCoinsTotal(addDays(rep.we, 1)) - scenarioCoinsTotal(rep.ws) ? `<small>含推演奖励 ${scenarioCoinsTotal(addDays(rep.we, 1)) - scenarioCoinsTotal(rep.ws)}</small>` : ''}</div>
       <div><span>错题巩固</span><b>${rep.revQ ? (100 * rep.revC / rep.revQ).toFixed(2) + '%' : rep.reviewsDone + ' 天'}</b><small>${rep.revQ ? `${rep.revC}/${rep.revQ} 题答对` : rep.reviewsDone ? '已完成，暂无逐题成绩' : '尚无已完成记录'}</small></div>
     </div>
     <div class="wk-pet">${opts.pet !== false ? petHTML({ cat: activePet(rep.after).cat, wear: activePet(rep.after).wear, h: 72, mode: lvUp ? 'party' : 'idle' }) : ''}

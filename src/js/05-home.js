@@ -22,7 +22,7 @@ function shell(content, active) {
       <button class="brand" data-go="${ROLE === 'student' ? 'home' : ROLE}"><img alt="" src="img/cat_${ap.cat}.png"><span>喵喵 SAT 通关</span></button>
       <nav class="tabs" aria-label="页面">${tabs.map(([k, l]) => `<button class="tab ${active === k ? 'on' : ''}" data-go="${k}">${l}</button>`).join('')}</nav>
       <div class="top-right">
-        <span class="pill coin-pill" title="可兑换金币（1 金币 = 1 美元）"><i class="coin"></i><b>${coinBalance()}</b></span>
+        <span class="pill coin-pill" title="可兑换金币（1 金币 = 1 美元）"><i class="coin"></i><b>${coinBalance()}</b>${scenarioCoinsTotal() ? `<small>含推演 ${scenarioCoinsTotal()}</small>` : ''}</span>
         <span class="pill lv-pill" title="萌宠等级（看累计金币）">Lv ${levelOf(coins)}</span>
       </div>
     </div></header>

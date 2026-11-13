@@ -328,11 +328,18 @@ function coinsEarned(before) {
   const runs = Store.all('runs').filter((r) => !before || r.startedOn < before);
   const revs = Store.all('reviews').filter((r) => !before || r.date < before);
   const credits = Store.all('completionCredits').filter((c) => !before || c.date < before);
-  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs) + reviewCompletionCredit(c.date));
+  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs) + reviewCompletionCredit(c.date) + scenarioCoinsOnDate(c.date));
+}
+function scenarioCoinsOnDate(date) {
+  const n = Store.get('completionCredits', date)?.scenarioCoins;
+  return Store.get('attendance', date)?.status === 'done' && Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+function scenarioCoinsTotal(before) {
+  return sum(Store.all('completionCredits').filter((c) => !before || c.date < before), (c) => scenarioCoinsOnDate(c.date));
 }
 function coinsOnDate(d) {
   const runs = Store.all('runs').filter((r) => r.startedOn === d);
-  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs) + reviewCompletionCredit(d);
+  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs) + reviewCompletionCredit(d) + scenarioCoinsOnDate(d);
 }
 function coinsRedeemed() { return sum(ledger().items.filter((i) => i.status === 'done'), (i) => i.coins); }
 function coinsPending() { return sum(ledger().items.filter((i) => i.status === 'pending'), (i) => i.coins); }
@@ -362,6 +369,11 @@ function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
   }
   const actual = { ...measured, partial };
   if (!missing.length) return measured.n ? actual : null;
+  const scenario = Store.get('attendance', date)?.projectionMetrics?.[sec];
+  if (estimate && !measured.n && scenario && [scenario.n, scenario.c, scenario.ms].every(Number.isFinite)
+    && scenario.n > 0 && scenario.c >= 0 && scenario.c <= scenario.n && scenario.ms > 0 && scenario.ms <= SEC_LIMIT[sec]) {
+    return { n: scenario.n, c: scenario.c, ms: scenario.ms, estimated: true, simulated: true };
+  }
 
   // 完整实测参与加权。无更早记录时，只用首个有实测的七天窗口回推。
   const samples = runs.filter((r) => !r.external && r.sections[sec].doneAt && r.sections[sec].usedMs > 0

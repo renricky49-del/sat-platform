@@ -1129,11 +1129,18 @@ function coinsEarned(before) {
   const runs = Store.all('runs').filter((r) => !before || r.startedOn < before);
   const revs = Store.all('reviews').filter((r) => !before || r.date < before);
   const credits = Store.all('completionCredits').filter((c) => !before || c.date < before);
-  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs) + reviewCompletionCredit(c.date));
+  return sum(runs, runCoins) + sum(revs, (r) => r.coin || 0) + sum(credits, (c) => completionCredit(c.date, runs) + reviewCompletionCredit(c.date) + scenarioCoinsOnDate(c.date));
+}
+function scenarioCoinsOnDate(date) {
+  const n = Store.get('completionCredits', date)?.scenarioCoins;
+  return Store.get('attendance', date)?.status === 'done' && Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+function scenarioCoinsTotal(before) {
+  return sum(Store.all('completionCredits').filter((c) => !before || c.date < before), (c) => scenarioCoinsOnDate(c.date));
 }
 function coinsOnDate(d) {
   const runs = Store.all('runs').filter((r) => r.startedOn === d);
-  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs) + reviewCompletionCredit(d);
+  return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs) + reviewCompletionCredit(d) + scenarioCoinsOnDate(d);
 }
 function coinsRedeemed() { return sum(ledger().items.filter((i) => i.status === 'done'), (i) => i.coins); }
 function coinsPending() { return sum(ledger().items.filter((i) => i.status === 'pending'), (i) => i.coins); }
@@ -1163,6 +1170,11 @@ function dailySectionMetrics(date, sec, runs, dayRuns, dayPlan, estimate) {
   }
   const actual = { ...measured, partial };
   if (!missing.length) return measured.n ? actual : null;
+  const scenario = Store.get('attendance', date)?.projectionMetrics?.[sec];
+  if (estimate && !measured.n && scenario && [scenario.n, scenario.c, scenario.ms].every(Number.isFinite)
+    && scenario.n > 0 && scenario.c >= 0 && scenario.c <= scenario.n && scenario.ms > 0 && scenario.ms <= SEC_LIMIT[sec]) {
+    return { n: scenario.n, c: scenario.c, ms: scenario.ms, estimated: true, simulated: true };
+  }
 
   // 完整实测参与加权。无更早记录时，只用首个有实测的七天窗口回推。
   const samples = runs.filter((r) => !r.external && r.sections[sec].doneAt && r.sections[sec].usedMs > 0
@@ -1877,7 +1889,7 @@ function shell(content, active) {
       <button class="brand" data-go="${ROLE === 'student' ? 'home' : ROLE}"><img alt="" src="img/cat_${ap.cat}.png"><span>喵喵 SAT 通关</span></button>
       <nav class="tabs" aria-label="页面">${tabs.map(([k, l]) => `<button class="tab ${active === k ? 'on' : ''}" data-go="${k}">${l}</button>`).join('')}</nav>
       <div class="top-right">
-        <span class="pill coin-pill" title="可兑换金币（1 金币 = 1 美元）"><i class="coin"></i><b>${coinBalance()}</b></span>
+        <span class="pill coin-pill" title="可兑换金币（1 金币 = 1 美元）"><i class="coin"></i><b>${coinBalance()}</b>${scenarioCoinsTotal() ? `<small>含推演 ${scenarioCoinsTotal()}</small>` : ''}</span>
         <span class="pill lv-pill" title="萌宠等级（看累计金币）">Lv ${levelOf(coins)}</span>
       </div>
     </div></header>
@@ -2406,6 +2418,8 @@ function showSettlement(T) {
   }
   const credit = completionCredit(T, runs);
   if (credit) rows.push(['补发完成奖', credit, '已确认完成，扣除同日已发完成奖', true]);
+  const simulated = scenarioCoinsOnDate(T);
+  if (simulated) rows.push(['推演奖励', simulated, '用户设定的情景奖励，不代表实测进步', true]);
   const reviewNote = rev && !rev.empty && rev.doneAt ? `答对 ${(rev.sections.rw.correct || 0) + (rev.sections.math.correct || 0)}/${rev.sections.rw.total + rev.sections.math.total}`
     : Store.get('attendance', T)?.reviewStatus === 'done' ? '已完成，暂无完整逐题成绩'
     : rev?.empty ? '今天没有到期的错题' : rev ? '还没做完' : '未记录';
@@ -2451,7 +2465,7 @@ function weekCardHTML(rep, opts = {}) {
       <div><span>数学总正确率</span><b>${accuracy('math')}</b><small>${coverage('math')}</small></div>
       <div><span>阅读平均用时</span><b>${duration('rw')}</b><small>${rep.rwDays} 个有成绩的完成日</small></div>
       <div><span>数学平均用时</span><b>${duration('math')}</b><small>${rep.mathDays} 个有成绩的完成日</small></div>
-      <div><span>本周金币</span><b class="coin-txt">+${rep.coins}</b><small>= ${rep.coins} 美元</small></div>
+      <div><span>本周金币</span><b class="coin-txt">+${rep.coins}</b><small>= ${rep.coins} 美元</small>${scenarioCoinsTotal(addDays(rep.we, 1)) - scenarioCoinsTotal(rep.ws) ? `<small>含推演奖励 ${scenarioCoinsTotal(addDays(rep.we, 1)) - scenarioCoinsTotal(rep.ws)}</small>` : ''}</div>
       <div><span>错题巩固</span><b>${rep.revQ ? (100 * rep.revC / rep.revQ).toFixed(2) + '%' : rep.reviewsDone + ' 天'}</b><small>${rep.revQ ? `${rep.revC}/${rep.revQ} 题答对` : rep.reviewsDone ? '已完成，暂无逐题成绩' : '尚无已完成记录'}</small></div>
     </div>
     <div class="wk-pet">${opts.pet !== false ? petHTML({ cat: activePet(rep.after).cat, wear: activePet(rep.after).wear, h: 72, mode: lvUp ? 'party' : 'idle' }) : ''}
@@ -2692,6 +2706,7 @@ function redeemHTML(student) {
   return `<section class="card redeem">
     <div class="sec-head"><h2>金币兑换</h2><span class="muted">1 金币 = 1 美元</span></div>
     <div class="mini-stats"><div><b>${coinsEarned()}</b><span>累计获得</span></div><div><b>${coinsRedeemed()}</b><span>已兑换</span></div><div><b class="coin-txt">${bal}</b><span>可兑换</span></div></div>
+    ${scenarioCoinsTotal() ? `<p class="muted">金币总数含 ${scenarioCoinsTotal()} 枚用户设定的推演奖励，不代表实测进步。</p>` : ''}
     ${student && Store.canWrite ? `<form class="rd-form" id="rdForm"><label for="rdN">申请兑换</label><input id="rdN" type="number" min="1" max="${Math.max(0, bal - pend)}" placeholder="金币数"><button class="btn small" type="submit" ${bal - pend <= 0 ? 'disabled' : ''}>提交给爸爸</button></form>` : ''}
     <ul class="simple-list rd-list">${items || '<li class="empty">还没有兑换记录。</li>'}</ul>
   </section>`;
@@ -2750,7 +2765,7 @@ function dailySectionHTML(m, emptyText = '暂无成绩') {
   const measured = m.measured;
   const detail = measured ? `<br><small>其中实测 ${measured.c}/${measured.n} · ${performanceText(measured)}</small>` : '';
   const note = m.partial ? '<small>已记录部分</small><br>' : '';
-  const mark = m.estimated ? `<abbr title="${m.backcast ? '按首周实测回推' : '按此前实测推算'}">≈</abbr> ` : '';
+  const mark = m.simulated ? '<small>推演</small> ≈ ' : m.estimated ? `<abbr title="${m.backcast ? '按首周实测回推' : '按此前实测推算'}">≈</abbr> ` : '';
   return `${note}${mark}${performanceText(m)}${detail}`;
 }
 
@@ -2771,7 +2786,8 @@ function dailyTasksHTML(week) {
         ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
         : reviewDone ? '已完成' : !review ? '未记录' : review.empty ? '无需巩固' : '未完成';
       const coins = coinsOnDate(d), credit = completionCredit(d, dayRuns) + reviewCompletionCredit(d);
-      const coinText = credit ? `${coins}<br><small>含补发 ${credit}</small>` : coins;
+      const simulated = scenarioCoinsOnDate(d);
+      const coinText = `${coins}${credit ? `<br><small>含补发 ${credit}</small>` : ''}${simulated ? `<br><small>含推演奖励 ${simulated}</small>` : ''}`;
       const emptyText = missed ? '未完成，无成绩' : '暂无成绩';
       return `<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
         <td>${status}</td><td>${dailySectionHTML(rw, emptyText)}</td>
