@@ -222,7 +222,6 @@ function redeemHTML(student) {
   return `<section class="card redeem">
     <div class="sec-head"><h2>金币兑换</h2><span class="muted">1 金币 = 1 美元</span></div>
     <div class="mini-stats"><div><b>${coinsEarned()}</b><span>累计获得</span></div><div><b>${coinsRedeemed()}</b><span>已兑换</span></div><div><b class="coin-txt">${bal}</b><span>可兑换</span></div></div>
-    ${scenarioCoinsTotal() ? `<p class="muted">金币总数含 ${scenarioCoinsTotal()} 枚用户设定的推演奖励，不代表实测进步。</p>` : ''}
     ${student && Store.canWrite ? `<form class="rd-form" id="rdForm"><label for="rdN">申请兑换</label><input id="rdN" type="number" min="1" max="${Math.max(0, bal - pend)}" placeholder="金币数"><button class="btn small" type="submit" ${bal - pend <= 0 ? 'disabled' : ''}>提交给爸爸</button></form>` : ''}
     <ul class="simple-list rd-list">${items || '<li class="empty">还没有兑换记录。</li>'}</ul>
   </section>`;
@@ -281,7 +280,7 @@ function dailySectionHTML(m, emptyText = '暂无成绩') {
   const measured = m.measured;
   const detail = measured ? `<br><small>其中实测 ${measured.c}/${measured.n} · ${performanceText(measured)}</small>` : '';
   const note = m.partial ? '<small>已记录部分</small><br>' : '';
-  const mark = m.simulated ? '<small>推演</small> ≈ ' : m.estimated ? `<abbr title="${m.backcast ? '按首周实测回推' : '按此前实测推算'}">≈</abbr> ` : '';
+  const mark = m.simulated ? '<abbr title="用户设定的参考值">≈</abbr> ' : m.estimated ? `<abbr title="${m.backcast ? '按首周实测回推' : '按此前实测推算'}">≈</abbr> ` : '';
   return `${note}${mark}${performanceText(m)}${detail}`;
 }
 
@@ -302,8 +301,7 @@ function dailyTasksHTML(week) {
         ? `完成 ${(review.sections.rw.correct || 0) + (review.sections.math.correct || 0)}/${review.sections.rw.total + review.sections.math.total}`
         : reviewDone ? '已完成' : !review ? '未记录' : review.empty ? '无需巩固' : '未完成';
       const coins = coinsOnDate(d), credit = completionCredit(d, dayRuns) + reviewCompletionCredit(d);
-      const simulated = scenarioCoinsOnDate(d);
-      const coinText = `${coins}${credit ? `<br><small>含补发 ${credit}</small>` : ''}${simulated ? `<br><small>含推演奖励 ${simulated}</small>` : ''}`;
+      const coinText = `${coins}${credit ? `<br><small>含补发 ${credit}</small>` : ''}`;
       const emptyText = missed ? '未完成，无成绩' : '暂无成绩';
       return `<tr${d === T ? ' class="today"' : ''}><td>${mdw(d)}</td>
         <td>${status}</td><td>${dailySectionHTML(rw, emptyText)}</td>
@@ -317,7 +315,7 @@ function dailyTasksHTML(week) {
     </details>`;
   });
   return `<section class="card daily-tasks"><div class="sec-head"><h2>每日任务完成情况</h2><span class="muted">截至 ${mdw(T)} · 美西时间</span></div>
-    <p class="muted">≈ 表示该组数据含推算值。优先参考同题型成绩，日期越近、星期几相同的实测权重越高。早于首次实测的日期按首周实测回推。</p>
+    <p class="muted">≈ 表示数据含估算值或用户设定的参考值。估算优先参考同题型成绩，日期越近、星期几相同的实测权重越高。早于首次实测的日期按首周实测回推。</p>
     ${blocks.join('')}</section>`;
 }
 

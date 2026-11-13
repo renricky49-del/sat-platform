@@ -334,9 +334,6 @@ function scenarioCoinsOnDate(date) {
   const n = Store.get('completionCredits', date)?.scenarioCoins;
   return Store.get('attendance', date)?.status === 'done' && Number.isFinite(n) ? Math.max(0, n) : 0;
 }
-function scenarioCoinsTotal(before) {
-  return sum(Store.all('completionCredits').filter((c) => !before || c.date < before), (c) => scenarioCoinsOnDate(c.date));
-}
 function coinsOnDate(d) {
   const runs = Store.all('runs').filter((r) => r.startedOn === d);
   return sum(runs, runCoins) + (Store.get('reviews', d)?.coin || 0) + completionCredit(d, runs) + reviewCompletionCredit(d) + scenarioCoinsOnDate(d);
